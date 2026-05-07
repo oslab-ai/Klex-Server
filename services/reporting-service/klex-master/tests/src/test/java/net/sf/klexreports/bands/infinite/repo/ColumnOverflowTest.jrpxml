@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<klexPrint xmlns="http://klexreports.sourceforge.net/klexreports/print" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://klexreports.sourceforge.net/klexreports/print http://klexreports.sourceforge.net/xsd/klexprint.xsd" name="ColumnOverflowTest" pageWidth="842" pageHeight="595" topMargin="20" leftMargin="20" bottomMargin="20" rightMargin="20" orientation="Landscape" locale="en_US" timezone="GMT">
+	<property name="net.sf.klexreports.export.xml.start.page.index" value="0"/>
+	<property name="net.sf.klexreports.export.xml.end.page.index" value="0"/>
+	<property name="net.sf.klexreports.export.xml.page.count" value="1"/>
+	<origin band="columnHeader"/>
+	<origin band="detail"/>
+	<origin band="columnFooter"/>
+	<page/>
+</klexPrint>

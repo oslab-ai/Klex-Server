@@ -1,0 +1,6 @@
+<ivy-module version="2.0">
+	<info organisation="net.sf.klexreports" module="klexreports-samples-antcompile"/>
+	<dependencies>
+		<dependency org="net.sf.klexreports" name="klexreports-ant" rev="7.0.0"/>
+	</dependencies>
+</ivy-module>

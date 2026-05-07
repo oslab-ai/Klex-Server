@@ -1,0 +1,24 @@
+# ─────────────────────────────────────────────────────────────
+#  Scheduler Configuration
+# ─────────────────────────────────────────────────────────────
+# Choose the active scheduling engine:
+#   - "quartz"   → Uses Quartz via KlexReportingService (default)
+#   - "airflow"  → Uses Apache Airflow (advanced ETL pipelines)
+#
+# To switch to Airflow, set active_engine to "airflow" and
+# deploy the airflow_scheduling_klex repository alongside.
+# ─────────────────────────────────────────────────────────────
+
+scheduler:
+  active_engine: "quartz"
+
+  quartz:
+    # URL of the Java service running KlexReportingService
+    # (same as SCHEDULER_SERVICE_URL / COMPILER_SERVICE_URL)
+    url: "${SCHEDULER_SERVICE_URL:-http://localhost:8081}"
+
+  airflow:
+    # URL of the Airflow REST API
+    url: "${AIRFLOW_API_URL:-http://localhost:8080/api/v1}"
+    username: "${AIRFLOW_USERNAME:-airflow}"
+    password: "${AIRFLOW_PASSWORD:-airflow}"

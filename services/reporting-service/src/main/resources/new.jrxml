@@ -1,0 +1,93 @@
+<!-- Created with Jaspersoft Studio version 7.0.3.final using KlexReports Library version 7.0.3-41034ca841d452f3305ba55b9042260aaa1ab5dd  -->
+<klexReport name="Customers" language="java" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+	<property name="com.klexsoft.studio.data.sql.tables" value=""/>
+	<property name="com.klexsoft.studio.data.sql.SQLQueryDesigner.sash.w1" value="479"/>
+	<property name="com.klexsoft.studio.data.sql.SQLQueryDesigner.sash.w2" value="521"/>
+	<property name="com.klexsoft.studio.data.defaultdataadapter" value="PostgreSQL Data Adapter"/>
+	<queryString language="SQL"><![CDATA[select * from  "Customers"]]></queryString>
+	<field name="Customer Name" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="Customer Name"/>
+		<property name="com.klexsoft.studio.field.label" value="Customer Name"/>
+		<property name="com.klexsoft.studio.field.tree.path" value="Customers"/>
+	</field>
+	<field name="Province" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="Province"/>
+		<property name="com.klexsoft.studio.field.label" value="Province"/>
+		<property name="com.klexsoft.studio.field.tree.path" value="Customers"/>
+	</field>
+	<field name="Region" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="Region"/>
+		<property name="com.klexsoft.studio.field.label" value="Region"/>
+		<property name="com.klexsoft.studio.field.tree.path" value="Customers"/>
+	</field>
+	<field name="Customer Segment" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="Customer Segment"/>
+		<property name="com.klexsoft.studio.field.label" value="Customer Segment"/>
+		<property name="com.klexsoft.studio.field.tree.path" value="Customers"/>
+	</field>
+	<background/>
+	<title height="72">
+		<element kind="frame" mode="Opaque" x="-20" y="-20" width="595" height="92" backcolor="#006699">
+			<element kind="staticText" x="20" y="20" width="234" height="43" forecolor="#FFFFFF" fontSize="34.0" bold="true">
+				<text><![CDATA[TITLE]]></text>
+			</element>
+			<element kind="staticText" x="395" y="43" width="180" height="20" forecolor="#FFFFFF" fontSize="14.0" bold="false" hTextAlign="Right">
+				<text><![CDATA[Add a description here]]></text>
+			</element>
+		</element>
+	</title>
+	<pageHeader height="13"/>
+	<columnHeader height="21">
+		<element kind="line" x="-20" y="20" width="595" height="1" forecolor="#666666"/>
+		<element kind="staticText" mode="Opaque" x="0" y="0" width="138" height="20" forecolor="#006699" backcolor="#E6E6E6" fontSize="14.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[Customer Name]]></text>
+			<property name="com.klexsoft.studio.spreadsheet.connectionID" value="4dedd246-4b8b-4d7c-b558-ef210353623d"/>
+		</element>
+		<element kind="staticText" mode="Opaque" x="138" y="0" width="138" height="20" forecolor="#006699" backcolor="#E6E6E6" fontSize="14.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[Province]]></text>
+			<property name="com.klexsoft.studio.spreadsheet.connectionID" value="3f2a6c03-fd48-4b1b-a386-e9b6729d0fac"/>
+		</element>
+		<element kind="staticText" mode="Opaque" x="276" y="0" width="138" height="20" forecolor="#006699" backcolor="#E6E6E6" fontSize="14.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[Region]]></text>
+			<property name="com.klexsoft.studio.spreadsheet.connectionID" value="6f0d2339-96ac-4a1b-9883-8bf3ca9ee9dd"/>
+		</element>
+		<element kind="staticText" mode="Opaque" x="414" y="0" width="138" height="20" forecolor="#006699" backcolor="#E6E6E6" fontSize="14.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[Customer Segment]]></text>
+			<property name="com.klexsoft.studio.spreadsheet.connectionID" value="13b9223a-25c8-4cd1-9943-1c5661da196d"/>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="20">
+			<element kind="line" positionType="FixRelativeToBottom" x="0" y="19" width="555" height="1"/>
+			<element kind="textField" x="0" y="0" width="138" height="20" fontSize="14.0" textAdjust="StretchHeight">
+				<expression><![CDATA[$F{Customer Name}]]></expression>
+				<property name="com.klexsoft.studio.spreadsheet.connectionID" value="4dedd246-4b8b-4d7c-b558-ef210353623d"/>
+			</element>
+			<element kind="textField" x="138" y="0" width="138" height="20" fontSize="14.0" textAdjust="StretchHeight">
+				<expression><![CDATA[$F{Province}]]></expression>
+				<property name="com.klexsoft.studio.spreadsheet.connectionID" value="3f2a6c03-fd48-4b1b-a386-e9b6729d0fac"/>
+			</element>
+			<element kind="textField" x="276" y="0" width="138" height="20" fontSize="14.0" textAdjust="StretchHeight">
+				<expression><![CDATA[$F{Region}]]></expression>
+				<property name="com.klexsoft.studio.spreadsheet.connectionID" value="6f0d2339-96ac-4a1b-9883-8bf3ca9ee9dd"/>
+			</element>
+			<element kind="textField" x="414" y="0" width="138" height="20" fontSize="14.0" textAdjust="StretchHeight">
+				<expression><![CDATA[$F{Customer Segment}]]></expression>
+				<property name="com.klexsoft.studio.spreadsheet.connectionID" value="13b9223a-25c8-4cd1-9943-1c5661da196d"/>
+			</element>
+		</band>
+	</detail>
+	<columnFooter/>
+	<pageFooter height="17">
+		<element kind="textField" mode="Opaque" x="0" y="4" width="515" height="13" backcolor="#E6E6E6" hTextAlign="Right">
+			<expression><![CDATA["Page "+$V{PAGE_NUMBER}+" of"]]></expression>
+		</element>
+		<element kind="textField" mode="Opaque" x="515" y="4" width="40" height="13" backcolor="#E6E6E6" evaluationTime="Report">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+		<element kind="textField" x="0" y="4" width="100" height="13" pattern="EEEEE dd MMMMM yyyy">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+	</pageFooter>
+	<summary/>
+</klexReport>

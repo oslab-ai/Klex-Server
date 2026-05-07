@@ -1,0 +1,43 @@
+# ═══════════════════════════════════════════════════════════════
+#  Klex — Terraform Variables
+#  Copy this file:  cp terraform.tfvars.example terraform.tfvars
+#  Then fill in your values below.
+# ═══════════════════════════════════════════════════════════════
+
+# ── General ───────────────────────────────────────────────────
+project_name = "klex"
+environment  = "production"
+aws_region   = "us-east-1"
+
+# ── Database ──────────────────────────────────────────────────
+db_instance_class    = "db.t3.micro"     # Cheapest option (~$15/mo)
+db_allocated_storage = 20                # GB
+db_name              = "klex"
+db_username          = "klex_admin"
+db_password          = "CHANGE_ME_use_a_strong_password"
+
+# ── ECS (Fargate) ─────────────────────────────────────────────
+backend_cpu           = 1024    # 1 vCPU  (needs Java + Django)
+backend_memory        = 2048    # 2 GB
+frontend_cpu          = 256     # 0.25 vCPU
+frontend_memory       = 512     # 0.5 GB
+backend_desired_count  = 1
+frontend_desired_count = 1
+
+# ── Application Secrets ──────────────────────────────────────
+django_secret_key    = "CHANGE_ME_generate_with_python_c_import_secrets_print_secrets_token_urlsafe_50"
+github_client_id     = ""
+github_client_secret = ""
+
+# ── SMTP (for scheduled report emails) ───────────────────────
+smtp_host     = "smtp.gmail.com"
+smtp_port     = 587
+smtp_username = ""
+smtp_password = ""
+
+# ── Custom Domain (Optional) ─────────────────────────────────
+# Uncomment these to enable Route 53 DNS + SSL certificate.
+# You need a Route 53 hosted zone already created for your domain.
+#
+# domain_name    = "klex.example.com"
+# route53_zone_id = "Z0123456789ABCDEFGHIJ"

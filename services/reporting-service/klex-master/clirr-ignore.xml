@@ -1,0 +1,22 @@
+<differences>
+	<difference>
+		<className>net/sf/klexreports/engine/export/ooxml/DocxDocumentHelper</className>
+		<differenceType>7004</differenceType>
+		<method>*exportHeader()</method>
+	</difference>
+	<difference>
+		<className>net/sf/klexreports/engine/export/ooxml/DocxDocumentHelper</className>
+		<differenceType>7004</differenceType>
+		<method>*exportSection(net.sf.klexreports.engine.PrintPageFormat, net.sf.klexreports.engine.export.JRGridLayout, boolean)</method>
+	</difference>
+	<difference>
+		<className>net/sf/klexreports/engine/export/ooxml/JRDocxExporter</className>
+		<differenceType>6001</differenceType>
+		<field>nature</field>
+	</difference>
+	<difference>
+		<className>net/sf/klexreports/export/DocxReportConfiguration</className>
+		<differenceType>7012</differenceType>
+		<method>*isBackgroundAsHeader()</method>
+	</difference>
+</differences>

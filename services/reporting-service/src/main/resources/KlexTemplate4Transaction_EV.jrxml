@@ -1,0 +1,1495 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 8.0.2.final using KlexReports Library version hotfix-6.18.1-SNAPSHOT-2961835b2212865be359a43768fc5fa9b356148c  -->
+<klexReport xmlns="http://klexreports.sourceforge.net/klexreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://klexreports.sourceforge.net/klexreports http://klexreports.sourceforge.net/xsd/klexreport.xsd" name="KlexInvoiceTransactionTemplate4" language="groovy" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="19" bottomMargin="20" uuid="eea8457f-dd0a-49b9-a590-3f2034a3b808">
+	<property name="ireport.zoom" value="0.8264462809917354"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="com.klexsoft.studio.data.defaultdataadapter" value="RADTEST"/>
+	<property name="com.klexsoft.studio.data.sql.tables" value=""/>
+	<property name="ireport.klexserver.url" value="https://klexdev79.radiuspaymentsolutions.com/klexserver-pro/"/>
+	<property name="ireport.klexserver.user" value="joshua.stansfield"/>
+	<property name="ireport.klexserver.report.resource" value="/public/Oracle_Reports/raddev1/Template4_files/KlexTemplate4Transaction_EV.jrxml"/>
+	<property name="ireport.klexserver.reportUnit" value="/public/Oracle_Reports/raddev1/Template4"/>
+	<property name="com.klexsoft.studio.unit." value="pixel"/>
+	<style name="table 1">
+		<box>
+			<pen lineWidth="1.0" lineColor="#FFFFFF"/>
+		</box>
+	</style>
+	<style name="table 1_CH" mode="Opaque" backcolor="#AAAAAA">
+		<box>
+			<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+		</box>
+	</style>
+	<style name="table 1_TD" mode="Transparent" backcolor="#FFFFFF">
+		<box>
+			<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+		</box>
+		<conditionalStyle>
+			<conditionExpression><![CDATA[new Boolean($V{REPORT_COUNT}.intValue()%2==0)]]></conditionExpression>
+			<style mode="Opaque" backcolor="#F5F5F5"/>
+		</conditionalStyle>
+	</style>
+	<style name="table 1_CH_1" mode="Opaque" backcolor="#666666">
+		<box>
+			<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+		</box>
+	</style>
+	<style name="AlternateShade" mode="Opaque" backcolor="#FAFAFA">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[new Boolean($V{REPORT_COUNT}.intValue()%2==0)]]></conditionExpression>
+			<style/>
+		</conditionalStyle>
+	</style>
+	<subDataset name="Invoice Headers" uuid="710beb79-3bb1-43f1-b53a-98e1be5ac270">
+		<property name="com.klexsoft.studio.data.defaultdataadapter" value="RADTEST"/>
+		<property name="com.klexsoft.studio.data.sql.tables" value=""/>
+		<parameter name="PN_CLIENT_NO" class="java.math.BigDecimal">
+			<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+		</parameter>
+		<parameter name="PN_INVOICE_CENTRE_NO" class="java.math.BigDecimal">
+			<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+		</parameter>
+		<parameter name="PN_INVOICE_NO" class="java.math.BigDecimal">
+			<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+		</parameter>
+		<queryString language="plsql">
+			<![CDATA[SELECT *
+FROM TABLE(
+	 G_UKFUELS.dpkg_klex_t4.ft_transaction_main_table($P{PN_CLIENT_NO},
+                                                       $P{PN_INVOICE_CENTRE_NO},
+                                                       $P{PN_INVOICE_NO} ))]]>
+		</queryString>
+		<field name="PROD_NAME" class="java.lang.String">
+			<property name="com.klexsoft.studio.field.name" value="PROD_NAME"/>
+			<property name="com.klexsoft.studio.field.label" value="PROD_NAME"/>
+		</field>
+		<field name="QUANTITY" class="java.math.BigDecimal">
+			<property name="com.klexsoft.studio.field.name" value="QUANTITY"/>
+			<property name="com.klexsoft.studio.field.label" value="QUANTITY"/>
+		</field>
+		<field name="NET_AMOUNT" class="java.math.BigDecimal">
+			<property name="com.klexsoft.studio.field.name" value="NET_AMOUNT"/>
+			<property name="com.klexsoft.studio.field.label" value="NET_AMOUNT"/>
+		</field>
+		<field name="VAT_AMOUNT" class="java.math.BigDecimal">
+			<property name="com.klexsoft.studio.field.name" value="VAT_AMOUNT"/>
+			<property name="com.klexsoft.studio.field.label" value="VAT_AMOUNT"/>
+		</field>
+		<field name="GROSS_AMOUNT" class="java.math.BigDecimal">
+			<property name="com.klexsoft.studio.field.name" value="GROSS_AMOUNT"/>
+			<property name="com.klexsoft.studio.field.label" value="GROSS_AMOUNT"/>
+		</field>
+		<field name="VAT_RATE" class="java.math.BigDecimal">
+			<property name="com.klexsoft.studio.field.name" value="VAT_RATE"/>
+			<property name="com.klexsoft.studio.field.label" value="VAT_RATE"/>
+		</field>
+		<field name="LANGUAGE_NO" class="java.math.BigDecimal">
+			<property name="com.klexsoft.studio.field.name" value="LANGUAGE_NO"/>
+			<property name="com.klexsoft.studio.field.label" value="LANGUAGE_NO"/>
+		</field>
+		<field name="COLUMN8" class="java.math.BigDecimal">
+			<property name="com.klexsoft.studio.field.name" value="COLUMN8"/>
+			<property name="com.klexsoft.studio.field.label" value="COLUMN8"/>
+		</field>
+		<field name="CURRENCY_ISO" class="java.lang.String">
+			<property name="com.klexsoft.studio.field.name" value="CURRENCY_ISO"/>
+			<property name="com.klexsoft.studio.field.label" value="CURRENCY_ISO"/>
+		</field>
+		<field name="PROD_NO" class="java.math.BigDecimal">
+			<property name="com.klexsoft.studio.field.name" value="PROD_NO"/>
+			<property name="com.klexsoft.studio.field.label" value="PROD_NO"/>
+		</field>
+		<field name="BRAND_NO" class="java.math.BigDecimal">
+			<property name="com.klexsoft.studio.field.name" value="BRAND_NO"/>
+			<property name="com.klexsoft.studio.field.label" value="BRAND_NO"/>
+		</field>
+		<field name="DC_PRODUCT_SUMM" class="java.lang.String">
+			<property name="com.klexsoft.studio.field.name" value="DC_PRODUCT_SUMM"/>
+			<property name="com.klexsoft.studio.field.label" value="DC_PRODUCT_SUMM"/>
+		</field>
+		<field name="DC_QUANTITY" class="java.lang.String">
+			<property name="com.klexsoft.studio.field.name" value="DC_QUANTITY"/>
+			<property name="com.klexsoft.studio.field.label" value="DC_QUANTITY"/>
+		</field>
+		<field name="DC_NET_AMT" class="java.lang.String">
+			<property name="com.klexsoft.studio.field.name" value="DC_NET_AMT"/>
+			<property name="com.klexsoft.studio.field.label" value="DC_NET_AMT"/>
+		</field>
+		<field name="DC_VAT_AMT" class="java.lang.String">
+			<property name="com.klexsoft.studio.field.name" value="DC_VAT_AMT"/>
+			<property name="com.klexsoft.studio.field.label" value="DC_VAT_AMT"/>
+		</field>
+		<field name="DC_VAT_RATE" class="java.lang.String">
+			<property name="com.klexsoft.studio.field.name" value="DC_VAT_RATE"/>
+			<property name="com.klexsoft.studio.field.label" value="DC_VAT_RATE"/>
+		</field>
+		<field name="DC_TRAN_GROSS_AMT" class="java.lang.String">
+			<property name="com.klexsoft.studio.field.name" value="DC_TRAN_GROSS_AMT"/>
+			<property name="com.klexsoft.studio.field.label" value="DC_TRAN_GROSS_AMT"/>
+		</field>
+		<field name="DC_TOT_INV_AMOUNT" class="java.lang.String">
+			<property name="com.klexsoft.studio.field.name" value="DC_TOT_INV_AMOUNT"/>
+			<property name="com.klexsoft.studio.field.label" value="DC_TOT_INV_AMOUNT"/>
+		</field>
+		<field name="DC_PAYMENT_DUE" class="java.lang.String">
+			<property name="com.klexsoft.studio.field.name" value="DC_PAYMENT_DUE"/>
+			<property name="com.klexsoft.studio.field.label" value="DC_PAYMENT_DUE"/>
+		</field>
+		<field name="PAYMENT_AMOUNT" class="java.math.BigDecimal">
+			<property name="com.klexsoft.studio.field.name" value="PAYMENT_AMOUNT"/>
+			<property name="com.klexsoft.studio.field.label" value="PAYMENT_AMOUNT"/>
+		</field>
+		<field name="INVOICE_AMOUNT" class="java.math.BigDecimal">
+			<property name="com.klexsoft.studio.field.name" value="INVOICE_AMOUNT"/>
+			<property name="com.klexsoft.studio.field.label" value="INVOICE_AMOUNT"/>
+		</field>
+		<variable name="SUM_NET" class="java.math.BigDecimal" calculation="Sum">
+			<variableExpression><![CDATA[$F{NET_AMOUNT}]]></variableExpression>
+			<initialValueExpression><![CDATA[0]]></initialValueExpression>
+		</variable>
+		<variable name="SUM_VAT" class="java.math.BigDecimal" calculation="Sum">
+			<variableExpression><![CDATA[$F{VAT_AMOUNT}]]></variableExpression>
+			<initialValueExpression><![CDATA[0]]></initialValueExpression>
+		</variable>
+		<variable name="SUM_GROSS" class="java.math.BigDecimal" calculation="Sum">
+			<variableExpression><![CDATA[$F{GROSS_AMOUNT}]]></variableExpression>
+			<initialValueExpression><![CDATA[0]]></initialValueExpression>
+		</variable>
+		<variable name="Sum_Quant" class="java.math.BigDecimal" calculation="Sum">
+			<variableExpression><![CDATA[$F{QUANTITY}]]></variableExpression>
+		</variable>
+		<group name="PROD_NAME">
+			<groupExpression><![CDATA[$F{PROD_NAME}]]></groupExpression>
+		</group>
+	</subDataset>
+	<parameter name="PN_INVOICE_DATE" class="java.sql.Date"/>
+	<parameter name="PN_BRAND_NO" class="java.math.BigDecimal"/>
+	<parameter name="PN_COMPANY_NO" class="java.math.BigDecimal"/>
+	<parameter name="PN_CLIENT_NO" class="java.math.BigDecimal">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="PN_INVOICE_CENTRE_NO" class="java.math.BigDecimal">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="PN_EBILL_FLAG" class="java.lang.String"/>
+	<parameter name="PN_COUNTRY_NO" class="java.math.BigDecimal"/>
+	<parameter name="PN_FUELINVOICE" class="java.lang.String"/>
+	<parameter name="PN_EVINVOICE" class="java.lang.String"/>
+	<queryString language="plsql">
+		<![CDATA[SELECT *
+FROM TABLE(
+	 G_UKFUELS.dpkg_klex_t4.ft_transaction_main($P{PN_INVOICE_DATE},
+                                                       $P{PN_BRAND_NO},
+                                                       $P{PN_COMPANY_NO},
+                                                       $P{PN_CLIENT_NO},
+                                                       $P{PN_INVOICE_CENTRE_NO},
+                                                       $P{PN_EBILL_FLAG},
+                                                       $P{PN_COUNTRY_NO},
+                                                       $P{PN_FUELINVOICE},
+                                                       $P{PN_EVINVOICE}
+	       ))]]>
+	</queryString>
+	<field name="INVOICE_CENTRE_NAME" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="INVOICE_CENTRE_NAME"/>
+		<property name="com.klexsoft.studio.field.label" value="INVOICE_CENTRE_NAME"/>
+	</field>
+	<field name="VARIABLE1" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="VARIABLE1"/>
+		<property name="com.klexsoft.studio.field.label" value="VARIABLE1"/>
+	</field>
+	<field name="COUNTRY_OF_ORIGIN" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="COUNTRY_OF_ORIGIN"/>
+		<property name="com.klexsoft.studio.field.label" value="COUNTRY_OF_ORIGIN"/>
+	</field>
+	<field name="WEX_FLAG" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="WEX_FLAG"/>
+		<property name="com.klexsoft.studio.field.label" value="WEX_FLAG"/>
+	</field>
+	<field name="VAT_INV_MSG" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="VAT_INV_MSG"/>
+		<property name="com.klexsoft.studio.field.label" value="VAT_INV_MSG"/>
+	</field>
+	<field name="VARIABLE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="VARIABLE"/>
+		<property name="com.klexsoft.studio.field.label" value="VARIABLE"/>
+	</field>
+	<field name="COLUMN7" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="COLUMN7"/>
+		<property name="com.klexsoft.studio.field.label" value="COLUMN7"/>
+	</field>
+	<field name="COLUMN8" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="COLUMN8"/>
+		<property name="com.klexsoft.studio.field.label" value="COLUMN8"/>
+	</field>
+	<field name="CNTRY_NO" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="CNTRY_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="CNTRY_NO"/>
+	</field>
+	<field name="ASNFVARIABLE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="ASNFVARIABLE"/>
+		<property name="com.klexsoft.studio.field.label" value="ASNFVARIABLE"/>
+	</field>
+	<field name="COUNTRY_NO" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="COUNTRY_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="COUNTRY_NO"/>
+	</field>
+	<field name="INVOICE_CENTRE_NO" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="INVOICE_CENTRE_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="INVOICE_CENTRE_NO"/>
+	</field>
+	<field name="INVOICE_NO" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="INVOICE_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="INVOICE_NO"/>
+	</field>
+	<field name="CLIENT_NO" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="CLIENT_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="CLIENT_NO"/>
+	</field>
+	<field name="ACCOUNT_NO" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="ACCOUNT_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="ACCOUNT_NO"/>
+	</field>
+	<field name="PAYMENT_METHOD" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="PAYMENT_METHOD"/>
+		<property name="com.klexsoft.studio.field.label" value="PAYMENT_METHOD"/>
+	</field>
+	<field name="LANGUAGE_NO" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="LANGUAGE_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="LANGUAGE_NO"/>
+	</field>
+	<field name="AGENTLANG" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="AGENTLANG"/>
+		<property name="com.klexsoft.studio.field.label" value="AGENTLANG"/>
+	</field>
+	<field name="EXT_INVOICE_NO" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="EXT_INVOICE_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="EXT_INVOICE_NO"/>
+	</field>
+	<field name="BRAND_NO" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="BRAND_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="BRAND_NO"/>
+	</field>
+	<field name="MESSAGE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="MESSAGE"/>
+		<property name="com.klexsoft.studio.field.label" value="MESSAGE"/>
+	</field>
+	<field name="MESSAGE2" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="MESSAGE2"/>
+		<property name="com.klexsoft.studio.field.label" value="MESSAGE2"/>
+	</field>
+	<field name="DC_DISCOUNT_MSG" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_DISCOUNT_MSG"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_DISCOUNT_MSG"/>
+	</field>
+	<field name="DISCOUNTCOUNTRY" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="DISCOUNTCOUNTRY"/>
+		<property name="com.klexsoft.studio.field.label" value="DISCOUNTCOUNTRY"/>
+	</field>
+	<field name="COLUMN26" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="COLUMN26"/>
+		<property name="com.klexsoft.studio.field.label" value="COLUMN26"/>
+	</field>
+	<field name="DC_ACC_NO" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_ACC_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_ACC_NO"/>
+	</field>
+	<field name="DC_INV_DATE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_INV_DATE"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_INV_DATE"/>
+	</field>
+	<field name="DC_INV_DUE_DATE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_INV_DUE_DATE"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_INV_DUE_DATE"/>
+	</field>
+	<field name="DC_INV_NO" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_INV_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_INV_NO"/>
+	</field>
+	<field name="DC_PAY_METH" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_PAY_METH"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_PAY_METH"/>
+	</field>
+	<field name="DC_TRAN_DETAIL" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_TRAN_DETAIL"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_TRAN_DETAIL"/>
+	</field>
+	<field name="DC_CO_REG_TXT" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_CO_REG_TXT"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_CO_REG_TXT"/>
+	</field>
+	<field name="DC_CO_VAT_TXT" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_CO_VAT_TXT"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_CO_VAT_TXT"/>
+	</field>
+	<field name="DC_VAT_NO" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_VAT_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_VAT_NO"/>
+	</field>
+	<field name="DC_TRAN_TYPE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_TRAN_TYPE"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_TRAN_TYPE"/>
+	</field>
+	<field name="H_SUPP_AND_INV_BY" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="H_SUPP_AND_INV_BY"/>
+		<property name="com.klexsoft.studio.field.label" value="H_SUPP_AND_INV_BY"/>
+	</field>
+	<field name="DC_PRODUCT_SUMM" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_PRODUCT_SUMM"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_PRODUCT_SUMM"/>
+	</field>
+	<field name="DC_QUANTITY" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_QUANTITY"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_QUANTITY"/>
+	</field>
+	<field name="DC_NET_AMT" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_NET_AMT"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_NET_AMT"/>
+	</field>
+	<field name="DC_VAT_AMT" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_VAT_AMT"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_VAT_AMT"/>
+	</field>
+	<field name="DC_VAT_RATE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_VAT_RATE"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_VAT_RATE"/>
+	</field>
+	<field name="DC_TRAN_GROSS_AMT" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_TRAN_GROSS_AMT"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_TRAN_GROSS_AMT"/>
+	</field>
+	<field name="DC_TOT_INV_AMOUNT" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_TOT_INV_AMOUNT"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_TOT_INV_AMOUNT"/>
+	</field>
+	<field name="D_PAYMENT_CURRENCY" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="D_PAYMENT_CURRENCY"/>
+		<property name="com.klexsoft.studio.field.label" value="D_PAYMENT_CURRENCY"/>
+	</field>
+	<field name="DC_MSG3" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_MSG3"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_MSG3"/>
+	</field>
+	<field name="DC_VAT_OUT_OF_SCOPE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_VAT_OUT_OF_SCOPE"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_VAT_OUT_OF_SCOPE"/>
+	</field>
+	<field name="DC_REGD_NO" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_REGD_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_REGD_NO"/>
+	</field>
+	<field name="DC_EXTRA_MSG" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_EXTRA_MSG"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_EXTRA_MSG"/>
+	</field>
+	<field name="DC_EXTRA_MSG_FLAG" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_EXTRA_MSG_FLAG"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_EXTRA_MSG_FLAG"/>
+	</field>
+	<field name="DC_BIC" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_BIC"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_BIC"/>
+	</field>
+	<field name="DC_IBAN" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_IBAN"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_IBAN"/>
+	</field>
+	<field name="DC_REGIS" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_REGIS"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_REGIS"/>
+	</field>
+	<field name="DC_MSG1" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_MSG1"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_MSG1"/>
+	</field>
+	<field name="DC_MSG2" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_MSG2"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_MSG2"/>
+	</field>
+	<field name="DC_MSG5" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_MSG5"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_MSG5"/>
+	</field>
+	<field name="DC_MSG13" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_MSG13"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_MSG13"/>
+	</field>
+	<field name="DC_MANNUALPAYMENT_MSG1" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_MANNUALPAYMENT_MSG1"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_MANNUALPAYMENT_MSG1"/>
+	</field>
+	<field name="DC_MANNUALPAYMENT_MSG2" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_MANNUALPAYMENT_MSG2"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_MANNUALPAYMENT_MSG2"/>
+	</field>
+	<field name="DC_SEPA" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DC_SEPA"/>
+		<property name="com.klexsoft.studio.field.label" value="DC_SEPA"/>
+	</field>
+	<field name="COUNTRY_NAME" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="COUNTRY_NAME"/>
+		<property name="com.klexsoft.studio.field.label" value="COUNTRY_NAME"/>
+	</field>
+	<field name="AGENT_COUNTRY" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="AGENT_COUNTRY"/>
+		<property name="com.klexsoft.studio.field.label" value="AGENT_COUNTRY"/>
+	</field>
+	<field name="VAT_NUMBER" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="VAT_NUMBER"/>
+		<property name="com.klexsoft.studio.field.label" value="VAT_NUMBER"/>
+	</field>
+	<field name="REGD_NUMBER" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="REGD_NUMBER"/>
+		<property name="com.klexsoft.studio.field.label" value="REGD_NUMBER"/>
+	</field>
+	<field name="COMPANY_NAME" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="COMPANY_NAME"/>
+		<property name="com.klexsoft.studio.field.label" value="COMPANY_NAME"/>
+	</field>
+	<field name="TRADING_MSG" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="TRADING_MSG"/>
+		<property name="com.klexsoft.studio.field.label" value="TRADING_MSG"/>
+	</field>
+	<field name="TRAD_COMPANY" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="TRAD_COMPANY"/>
+		<property name="com.klexsoft.studio.field.label" value="TRAD_COMPANY"/>
+	</field>
+	<field name="FORMATTED_ADDRESS" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="FORMATTED_ADDRESS"/>
+		<property name="com.klexsoft.studio.field.label" value="FORMATTED_ADDRESS"/>
+	</field>
+	<field name="COMPANY_ADDRESS" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="COMPANY_ADDRESS"/>
+		<property name="com.klexsoft.studio.field.label" value="COMPANY_ADDRESS"/>
+	</field>
+	<field name="AGENT_ADDRESS" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="AGENT_ADDRESS"/>
+		<property name="com.klexsoft.studio.field.label" value="AGENT_ADDRESS"/>
+	</field>
+	<field name="COMPANY_NO" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="COMPANY_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="COMPANY_NO"/>
+	</field>
+	<field name="INV_COMPANY_NO" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="INV_COMPANY_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="INV_COMPANY_NO"/>
+	</field>
+	<field name="AGENT_INV_COMPANY_NO" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="AGENT_INV_COMPANY_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="AGENT_INV_COMPANY_NO"/>
+	</field>
+	<field name="ADDRESS_NO" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="ADDRESS_NO"/>
+		<property name="com.klexsoft.studio.field.label" value="ADDRESS_NO"/>
+	</field>
+	<field name="INVOICEDATE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="INVOICEDATE"/>
+		<property name="com.klexsoft.studio.field.label" value="INVOICEDATE"/>
+	</field>
+	<field name="PAYMENTDATE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="PAYMENTDATE"/>
+		<property name="com.klexsoft.studio.field.label" value="PAYMENTDATE"/>
+	</field>
+	<field name="COLOUR_LOGO" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="COLOUR_LOGO"/>
+		<property name="com.klexsoft.studio.field.label" value="COLOUR_LOGO"/>
+	</field>
+	<field name="CURRENCY_ISO" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="CURRENCY_ISO"/>
+		<property name="com.klexsoft.studio.field.label" value="CURRENCY_ISO"/>
+	</field>
+	<field name="PAYMENTAMOUNT" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="PAYMENTAMOUNT"/>
+		<property name="com.klexsoft.studio.field.label" value="PAYMENTAMOUNT"/>
+	</field>
+	<field name="PAYMENT_TYPE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="PAYMENT_TYPE"/>
+		<property name="com.klexsoft.studio.field.label" value="PAYMENT_TYPE"/>
+	</field>
+	<field name="SEPA_TYPE" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="SEPA_TYPE"/>
+		<property name="com.klexsoft.studio.field.label" value="SEPA_TYPE"/>
+	</field>
+	<field name="MANDATE_ID" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="MANDATE_ID"/>
+		<property name="com.klexsoft.studio.field.label" value="MANDATE_ID"/>
+	</field>
+	<field name="CREDITOR_ID" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="CREDITOR_ID"/>
+		<property name="com.klexsoft.studio.field.label" value="CREDITOR_ID"/>
+	</field>
+	<field name="DD_CURRENCY" class="java.math.BigDecimal">
+		<property name="com.klexsoft.studio.field.name" value="DD_CURRENCY"/>
+		<property name="com.klexsoft.studio.field.label" value="DD_CURRENCY"/>
+	</field>
+	<field name="DIV_MESSAGE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DIV_MESSAGE"/>
+		<property name="com.klexsoft.studio.field.label" value="DIV_MESSAGE"/>
+	</field>
+	<field name="COMPANY_MESSAGE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="COMPANY_MESSAGE"/>
+		<property name="com.klexsoft.studio.field.label" value="COMPANY_MESSAGE"/>
+	</field>
+	<field name="DD_MESSAGE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="DD_MESSAGE"/>
+		<property name="com.klexsoft.studio.field.label" value="DD_MESSAGE"/>
+	</field>
+	<field name="MANNUALPAYMENTMESSAGE" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="MANNUALPAYMENTMESSAGE"/>
+		<property name="com.klexsoft.studio.field.label" value="MANNUALPAYMENTMESSAGE"/>
+	</field>
+	<field name="GROUP_LOGO" class="java.lang.String">
+		<property name="com.klexsoft.studio.field.name" value="GROUP_LOGO"/>
+		<property name="com.klexsoft.studio.field.label" value="GROUP_LOGO"/>
+	</field>
+	<variable name="logo_folder" class="java.lang.String">
+		<variableExpression><![CDATA["/KlexReports_Server_Pro/public/Oracle_Reports/"]]></variableExpression>
+	</variable>
+	<variable name="logo" class="java.lang.String">
+		<variableExpression><![CDATA[$F{COLOUR_LOGO}]]></variableExpression>
+	</variable>
+	<variable name="VatOutOfScopeMsg" class="java.lang.String">
+		<variableExpression><![CDATA[$F{DC_VAT_OUT_OF_SCOPE}]]></variableExpression>
+	</variable>
+	<variable name="message5" class="java.lang.String">
+		<variableExpression><![CDATA[$F{DC_MSG13}+$F{PAYMENTDATE}]]></variableExpression>
+	</variable>
+	<variable name="message_3" class="java.lang.String">
+		<variableExpression><![CDATA[$F{DC_MANNUALPAYMENT_MSG1}+$F{PAYMENTDATE}+" "+$F{DC_MANNUALPAYMENT_MSG2}]]></variableExpression>
+	</variable>
+	<variable name="message2" class="java.lang.String">
+		<variableExpression><![CDATA[$F{DC_MSG5}+$F{PAYMENTDATE}]]></variableExpression>
+	</variable>
+	<variable name="Message1" class="java.lang.String">
+		<variableExpression><![CDATA[$F{DC_MSG1}+$F{DC_MSG2}]]></variableExpression>
+	</variable>
+	<group name="Invoice" isStartNewPage="true">
+		<groupExpression><![CDATA[$F{INVOICE_NO}]]></groupExpression>
+		<groupHeader>
+			<band/>
+		</groupHeader>
+		<groupFooter>
+			<band/>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<detail>
+		<band height="314" splitType="Stretch">
+			<rectangle>
+				<reportElement positionType="Float" mode="Opaque" x="-7" y="1" width="817" height="11" backcolor="#4D4D4D" uuid="30308d0d-b7c0-4865-9bbb-209026d994ea">
+					<property name="com.klexsoft.studio.unit.height" value="cm"/>
+				</reportElement>
+				<graphicElement>
+					<pen lineColor="#FFFFFF"/>
+				</graphicElement>
+			</rectangle>
+			<textField>
+				<reportElement x="630" y="-2" width="175" height="13" forecolor="#FFFCFC" uuid="20b2b545-762b-4ee5-8d7d-573761d40600">
+					<property name="com.klexsoft.studio.unit.rightIndent" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font fontName="Calibri" size="7.5" isBold="true"/>
+					<paragraph rightIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{INV_COMPANY_NO}==$F{AGENT_INV_COMPANY_NO} ? $F{COUNTRY_NAME} : $F{AGENT_COUNTRY}]]></textFieldExpression>
+			</textField>
+			<frame>
+				<reportElement positionType="Float" x="182" y="15" width="626" height="82" uuid="efb9a76e-5c50-4dd9-b423-ae64ab5e1587"/>
+				<image scaleImage="RetainShape" hAlign="Right" vAlign="Top" onErrorType="Blank">
+					<reportElement positionType="Float" x="508" y="0" width="118" height="33" uuid="32eb5f27-aa08-4c85-b986-0f612b41dd85">
+						<property name="com.klexsoft.studio.unit.x" value="px"/>
+						<property name="com.klexsoft.studio.unit.width" value="px"/>
+						<property name="com.klexsoft.studio.unit.height" value="px"/>
+					</reportElement>
+					<imageExpression><![CDATA[$F{COLOUR_LOGO}]]></imageExpression>
+				</image>
+				<frame>
+					<reportElement positionType="Float" x="22" y="0" width="460" height="81" uuid="0fa80520-d352-4fad-a1e3-3fe622a4e564"/>
+					<textField textAdjust="StretchHeight">
+						<reportElement positionType="Float" x="177" y="0" width="147" height="81" uuid="8b2b48e3-d685-4636-a826-6605e6c2facb"/>
+						<textElement markup="html">
+							<font fontName="Calibri" size="7.5"/>
+						</textElement>
+						<textFieldExpression><![CDATA[$F{COMPANY_ADDRESS}]]></textFieldExpression>
+					</textField>
+					<frame>
+						<reportElement positionType="Float" stretchType="ContainerHeight" x="326" y="-2" width="134" height="72" uuid="05a83661-9ba8-40d0-8c42-77003bd133e6">
+							<printWhenExpression><![CDATA[$F{AGENT_INV_COMPANY_NO}!=null && $F{INV_COMPANY_NO}!=$F{AGENT_INV_COMPANY_NO}&&$F{BRAND_NO}!= 30]]></printWhenExpression>
+						</reportElement>
+						<textField textAdjust="StretchHeight">
+							<reportElement positionType="Float" stretchType="ContainerBottom" x="0" y="12" width="130" height="42" uuid="bd7216b6-af42-4731-9fdb-6945e09ede8e">
+								<property name="com.klexsoft.studio.unit.leftIndent" value="cm"/>
+								<property name="com.klexsoft.studio.unit.spacingAfter" value="cm"/>
+							</reportElement>
+							<box bottomPadding="2">
+								<pen lineWidth="0.75"/>
+							</box>
+							<textElement verticalAlignment="Top" markup="html">
+								<font fontName="Calibri" size="7.5"/>
+								<paragraph leftIndent="1" spacingAfter="0"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{AGENT_ADDRESS}]]></textFieldExpression>
+						</textField>
+						<textField textAdjust="StretchHeight">
+							<reportElement positionType="Float" x="0" y="3" width="130" height="8" uuid="a9ae0878-14b6-48ff-a290-625885ae1aec"/>
+							<box>
+								<pen lineWidth="0.75"/>
+								<topPen lineWidth="0.75" lineStyle="Solid" lineColor="#000000"/>
+								<leftPen lineWidth="0.75" lineStyle="Solid" lineColor="#000000"/>
+								<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+								<rightPen lineWidth="0.75" lineStyle="Solid" lineColor="#000000"/>
+							</box>
+							<textElement markup="html">
+								<font fontName="Calibri" size="7" isBold="true"/>
+								<paragraph leftIndent="1"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{H_SUPP_AND_INV_BY}]]></textFieldExpression>
+						</textField>
+					</frame>
+				</frame>
+			</frame>
+			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+				<reportElement x="-1" y="14" width="168" height="45" uuid="b47eaa9d-a1eb-464f-aa13-052e07b45ec9">
+					<property name="com.klexsoft.studio.unit.height" value="px"/>
+					<printWhenExpression><![CDATA[$F{GROUP_LOGO}==null]]></printWhenExpression>
+				</reportElement>
+				<textElement markup="html">
+					<font fontName="Calibri" size="18"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{DC_TRAN_TYPE}]]></textFieldExpression>
+			</textField>
+			<frame>
+				<reportElement positionType="Float" x="-2" y="102" width="812" height="203" uuid="456e385f-28d6-4576-9458-6b8ea72d0b4e"/>
+				<frame>
+					<reportElement positionType="Float" x="3" y="0" width="808" height="73" uuid="b4bb4ce8-1513-4e70-8de5-cfc4371942e2"/>
+					<componentElement>
+						<reportElement key="" positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="379" y="0" width="429" height="60" isPrintWhenDetailOverflows="true" uuid="36125905-e09b-49dd-94d6-3d1ccb280928">
+							<property name="com.klexsoft.studio.unit.height" value="pixel"/>
+						</reportElement>
+						<jr:table xmlns:jr="http://klexreports.sourceforge.net/klexreports/components" xsi:schemaLocation="http://klexreports.sourceforge.net/klexreports/components http://klexreports.sourceforge.net/xsd/components.xsd">
+							<datasetRun subDataset="Invoice Headers" uuid="68df65c3-6957-4448-813e-7b347d7a7784">
+								<datasetParameter name="PN_CLIENT_NO">
+									<datasetParameterExpression><![CDATA[$F{CLIENT_NO}]]></datasetParameterExpression>
+								</datasetParameter>
+								<datasetParameter name="PN_INVOICE_CENTRE_NO">
+									<datasetParameterExpression><![CDATA[$F{INVOICE_CENTRE_NO}]]></datasetParameterExpression>
+								</datasetParameter>
+								<datasetParameter name="PN_INVOICE_NO">
+									<datasetParameterExpression><![CDATA[$F{INVOICE_NO}]]></datasetParameterExpression>
+								</datasetParameter>
+								<datasetParameter name="ORACLE_REF_CURSOR">
+									<datasetParameterExpression><![CDATA[$P{ORACLE_REF_CURSOR}]]></datasetParameterExpression>
+								</datasetParameter>
+								<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+							</datasetRun>
+							<jr:column width="137" uuid="bd58d456-4207-4e72-980b-a63093d78011">
+								<property name="com.klexsoft.studio.components.table.model.column.name" value="Column1"/>
+								<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+								<jr:columnHeader style="table 1_CH" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<box>
+										<pen lineColor="#FFFFFF"/>
+									</box>
+									<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+										<reportElement style="table 1" stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="137" height="12" isRemoveLineWhenBlank="true" backcolor="#CDCDCD" uuid="3a781dfb-1e17-41f5-9216-a67032b689c7">
+											<property name="com.klexsoft.studio.unit.width" value="cm"/>
+											<property name="com.klexsoft.studio.unit.height" value="cm"/>
+										</reportElement>
+										<box bottomPadding="2">
+											<pen lineColor="#000000"/>
+											<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+										</box>
+										<textElement textAlignment="Left" verticalAlignment="Top" markup="html">
+											<font fontName="Calibri" size="7.5" isBold="true" isPdfEmbedded="true"/>
+											<paragraph leftIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{DC_PRODUCT_SUMM}]]></textFieldExpression>
+									</textField>
+								</jr:columnHeader>
+								<jr:columnFooter style="table 1_CH" height="25" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<frame>
+										<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="137" height="25" uuid="9fa16704-2bc5-49ef-8359-a76467b15e53">
+											<property name="com.klexsoft.studio.unit.height" value="cm"/>
+										</reportElement>
+										<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+											<reportElement positionType="Float" stretchType="ElementGroupHeight" mode="Opaque" x="0" y="0" width="137" height="12" isPrintWhenDetailOverflows="true" backcolor="#FFFFFF" uuid="dced45dd-7458-445f-a16e-a9dd2ad56cdf">
+												<property name="com.klexsoft.studio.unit.rightIndent" value="px"/>
+												<property name="com.klexsoft.studio.unit.height" value="cm"/>
+											</reportElement>
+											<box bottomPadding="1"/>
+											<textElement textAlignment="Right" markup="html">
+												<font fontName="Calibri" size="7.5" isBold="true"/>
+												<paragraph rightIndent="5"/>
+											</textElement>
+											<textFieldExpression><![CDATA[$F{DC_TOT_INV_AMOUNT}]]></textFieldExpression>
+										</textField>
+										<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+											<reportElement positionType="Float" stretchType="ElementGroupHeight" mode="Opaque" x="0" y="12" width="137" height="12" isPrintWhenDetailOverflows="true" backcolor="#FFFFFF" uuid="1f0205a5-fe28-47d0-b528-bb577e04b2ff">
+												<property name="com.klexsoft.studio.unit.rightIndent" value="px"/>
+												<property name="com.klexsoft.studio.unit.height" value="cm"/>
+												<printWhenExpression><![CDATA[$F{INVOICE_AMOUNT}!=$F{PAYMENT_AMOUNT}&&$F{PAYMENT_AMOUNT} != null]]></printWhenExpression>
+											</reportElement>
+											<box bottomPadding="1"/>
+											<textElement textAlignment="Right" markup="html">
+												<font fontName="Calibri" size="7.5" isBold="true"/>
+												<paragraph rightIndent="5"/>
+											</textElement>
+											<textFieldExpression><![CDATA[$F{DC_PAYMENT_DUE}]]></textFieldExpression>
+										</textField>
+									</frame>
+								</jr:columnFooter>
+								<jr:detailCell style="table 1_TD" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<property name="com.klexsoft.studio.unit.width" value="cm"/>
+									<textField textAdjust="StretchHeight">
+										<reportElement key="" style="table 1_TD" mode="Transparent" x="0" y="0" width="137" height="12" backcolor="#F5F5F5" uuid="e69c2b61-37a1-49ff-8f69-bca68555e6fa">
+											<property name="com.klexsoft.studio.unit.height" value="cm"/>
+										</reportElement>
+										<box bottomPadding="1"/>
+										<textElement>
+											<font fontName="Calibri" size="7.5"/>
+											<paragraph leftIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{PROD_NAME}]]></textFieldExpression>
+									</textField>
+								</jr:detailCell>
+							</jr:column>
+							<jr:column width="47" uuid="d3246f1e-b25a-4a29-ab10-c2ed076ced60">
+								<property name="com.klexsoft.studio.components.table.model.column.name" value="Column2"/>
+								<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+								<jr:columnHeader style="table 1_CH" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<box>
+										<pen lineColor="#FFFFFF"/>
+									</box>
+									<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+										<reportElement stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="47" height="12" isRemoveLineWhenBlank="true" backcolor="#CDCDCD" uuid="4a101c76-dfcb-4369-8333-da7f88c646b9"/>
+										<box bottomPadding="2"/>
+										<textElement textAlignment="Right" verticalAlignment="Top" markup="html">
+											<font fontName="Calibri" size="7.5" isBold="true" isPdfEmbedded="true"/>
+											<paragraph rightIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{DC_QUANTITY}]]></textFieldExpression>
+									</textField>
+								</jr:columnHeader>
+								<jr:columnFooter style="table 1_CH" height="25" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<frame>
+										<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="47" height="25" uuid="7e7a2eb7-8900-4754-9df2-baaf7e017523">
+											<property name="com.klexsoft.studio.unit.height" value="cm"/>
+										</reportElement>
+										<box>
+											<pen lineColor="#FFFFFF"/>
+											<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+											<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+											<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+											<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+										</box>
+										<textField textAdjust="StretchHeight" pattern="#.00" isBlankWhenNull="true">
+											<reportElement stretchType="ElementGroupHeight" mode="Opaque" x="0" y="0" width="47" height="12" backcolor="#CDCDCD" uuid="d6ea05ec-ac21-49d6-93dd-842f718c36b0">
+												<property name="com.klexsoft.studio.unit.rightIndent" value="px"/>
+												<property name="com.klexsoft.studio.unit.height" value="cm"/>
+											</reportElement>
+											<box topPadding="0" bottomPadding="1" rightPadding="0">
+												<pen lineColor="#FFFFFF"/>
+												<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											</box>
+											<textElement textAlignment="Right" markup="html">
+												<font fontName="Calibri" size="7.5" isBold="true"/>
+												<paragraph rightIndent="5"/>
+											</textElement>
+											<textFieldExpression><![CDATA[$V{Sum_Quant}]]></textFieldExpression>
+										</textField>
+									</frame>
+								</jr:columnFooter>
+								<jr:detailCell style="table 1_TD" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<textField textAdjust="StretchHeight" pattern="###0.00;-###0.00">
+										<reportElement style="table 1_TD" mode="Transparent" x="0" y="0" width="47" height="12" backcolor="#F5F5F5" uuid="74f58c52-7efc-443c-bd74-21cfbd1a8e6d"/>
+										<box bottomPadding="1"/>
+										<textElement textAlignment="Right" verticalAlignment="Middle">
+											<font fontName="Calibri" size="7.5" isPdfEmbedded="true"/>
+											<paragraph rightIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{QUANTITY}]]></textFieldExpression>
+									</textField>
+								</jr:detailCell>
+							</jr:column>
+							<jr:column width="62" uuid="dc42e31b-16a7-4529-90c8-08a2c6b3bfe2">
+								<property name="com.klexsoft.studio.components.table.model.column.name" value="Column3"/>
+								<jr:columnHeader style="table 1_CH" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.unit.width" value="cm"/>
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<box>
+										<pen lineColor="#FFFFFF"/>
+									</box>
+									<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+										<reportElement stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="62" height="12" isRemoveLineWhenBlank="true" backcolor="#CDCDCD" uuid="acd3604e-af5e-4e3d-a601-6801141f559f">
+											<property name="com.klexsoft.studio.unit.height" value="cm"/>
+										</reportElement>
+										<box bottomPadding="2"/>
+										<textElement textAlignment="Right" verticalAlignment="Top" markup="html">
+											<font fontName="Calibri" size="7.5" isBold="true" isPdfEmbedded="true"/>
+											<paragraph rightIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{DC_NET_AMT} +" "+$F{CURRENCY_ISO}]]></textFieldExpression>
+									</textField>
+								</jr:columnHeader>
+								<jr:columnFooter style="table 1_CH" height="25" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<box>
+										<pen lineColor="#FFFFFF"/>
+										<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+										<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+										<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+										<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+									</box>
+									<frame>
+										<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="62" height="25" uuid="b1a3f16e-17d5-410c-b80b-5db68314bc5a">
+											<property name="com.klexsoft.studio.unit.height" value="cm"/>
+										</reportElement>
+										<box>
+											<pen lineColor="#FFFFFF"/>
+											<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+											<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+											<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+											<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+										</box>
+										<textField textAdjust="StretchHeight" pattern="#.00" isBlankWhenNull="true">
+											<reportElement stretchType="ElementGroupHeight" mode="Opaque" x="0" y="0" width="62" height="12" backcolor="#CDCDCD" uuid="fcf8c929-fb46-4b0f-951e-fafb6f7cfecc">
+												<property name="com.klexsoft.studio.unit.rightIndent" value="px"/>
+												<property name="com.klexsoft.studio.unit.height" value="cm"/>
+											</reportElement>
+											<box topPadding="0" bottomPadding="1" rightPadding="0">
+												<pen lineColor="#FFFFFF"/>
+												<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											</box>
+											<textElement textAlignment="Right" markup="html">
+												<font fontName="Calibri" size="7.5" isBold="true"/>
+												<paragraph rightIndent="5"/>
+											</textElement>
+											<textFieldExpression><![CDATA[String.format("%.2f",(double)($V{SUM_NET}.doubleValue()))]]></textFieldExpression>
+										</textField>
+									</frame>
+								</jr:columnFooter>
+								<jr:detailCell style="table 1_TD" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<textField textAdjust="StretchHeight" pattern="###0.00;-###0.00">
+										<reportElement style="table 1_TD" mode="Transparent" x="0" y="0" width="62" height="12" backcolor="#F5F5F5" uuid="f75fdc57-d707-4de8-84c1-99c2355abaa1"/>
+										<box bottomPadding="1"/>
+										<textElement textAlignment="Right" verticalAlignment="Middle">
+											<font fontName="Calibri" size="7.5" isPdfEmbedded="true"/>
+											<paragraph rightIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{NET_AMOUNT}]]></textFieldExpression>
+									</textField>
+								</jr:detailCell>
+							</jr:column>
+							<jr:column width="46" uuid="f69dcf19-5ea5-4aa8-912f-eaf2d31fcb16">
+								<property name="com.klexsoft.studio.components.table.model.column.name" value="Column4"/>
+								<property name="com.klexsoft.studio.layout"/>
+								<jr:columnHeader style="table 1_CH" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<property name="com.klexsoft.studio.unit.height" value="cm"/>
+									<box>
+										<pen lineColor="#FFFFFF"/>
+									</box>
+									<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+										<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="46" height="12" isRemoveLineWhenBlank="true" backcolor="#CDCDCD" uuid="f2eccb0f-494d-4cba-b489-679ae2cfffb0">
+											<property name="com.klexsoft.studio.unit.height" value="cm"/>
+										</reportElement>
+										<box bottomPadding="2"/>
+										<textElement textAlignment="Right" verticalAlignment="Top" markup="html">
+											<font fontName="Calibri" size="7.5" isBold="true" isPdfEmbedded="true"/>
+											<paragraph rightIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{DC_VAT_RATE}]]></textFieldExpression>
+									</textField>
+								</jr:columnHeader>
+								<jr:columnFooter style="table 1_CH" height="25" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<box>
+										<pen lineColor="#FFFFFF"/>
+									</box>
+									<frame>
+										<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="46" height="25" uuid="d3d2ef52-2b5c-4c91-a4ac-5ac0642ea617"/>
+										<box>
+											<pen lineColor="#FFFFFF"/>
+											<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+										</box>
+										<textField textAdjust="StretchHeight" pattern="###0.00;-###0.00" isBlankWhenNull="true">
+											<reportElement stretchType="ElementGroupHeight" mode="Opaque" x="0" y="0" width="46" height="12" backcolor="#CDCDCD" uuid="29dd63a8-bdfc-492a-96ca-b04f6c418ed7">
+												<property name="com.klexsoft.studio.unit.rightIndent" value="px"/>
+											</reportElement>
+											<box bottomPadding="1">
+												<pen lineColor="#FFFFFF"/>
+												<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											</box>
+											<textElement textAlignment="Right" markup="html">
+												<font fontName="Calibri" size="7.5" isBold="true"/>
+												<paragraph rightIndent="5"/>
+											</textElement>
+											<textFieldExpression><![CDATA[""]]></textFieldExpression>
+										</textField>
+									</frame>
+								</jr:columnFooter>
+								<jr:detailCell style="table 1_TD" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<property name="com.klexsoft.studio.unit.width" value="cm"/>
+									<textField textAdjust="StretchHeight" pattern="###0.##%;-###0.##%">
+										<reportElement style="table 1_TD" mode="Transparent" x="0" y="0" width="46" height="12" backcolor="#F5F5F5" uuid="444ed402-4525-46ed-a52a-3d8908fea75b"/>
+										<box bottomPadding="1"/>
+										<textElement textAlignment="Right" verticalAlignment="Middle">
+											<font fontName="Calibri" size="7.5" isPdfEmbedded="true"/>
+											<paragraph rightIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{VAT_RATE}/100]]></textFieldExpression>
+									</textField>
+								</jr:detailCell>
+							</jr:column>
+							<jr:column width="72" uuid="3720cd0d-dcd1-468b-a7b4-d48515aa6fc2">
+								<property name="com.klexsoft.studio.components.table.model.column.name" value="Column5"/>
+								<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+								<jr:columnHeader style="table 1_CH" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<property name="com.klexsoft.studio.unit.height" value="cm"/>
+									<box>
+										<pen lineColor="#FFFFFF"/>
+									</box>
+									<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+										<reportElement stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="72" height="12" isRemoveLineWhenBlank="true" backcolor="#CDCDCD" uuid="9cac3cd0-df44-4e19-8746-6cc1f271d510">
+											<property name="com.klexsoft.studio.unit.height" value="cm"/>
+										</reportElement>
+										<box bottomPadding="2"/>
+										<textElement textAlignment="Right" verticalAlignment="Top" markup="html">
+											<font fontName="Calibri" size="7.5" isBold="true" isPdfEmbedded="true"/>
+											<paragraph rightIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{DC_VAT_AMT}+" "+$F{CURRENCY_ISO}]]></textFieldExpression>
+									</textField>
+								</jr:columnHeader>
+								<jr:columnFooter style="table 1_CH" height="25" rowSpan="1">
+									<frame>
+										<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="72" height="25" uuid="8092f0ca-6ef4-451d-a01b-6f99ddbff323"/>
+										<box>
+											<pen lineColor="#FFFFFF"/>
+											<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+										</box>
+										<textField textAdjust="StretchHeight" pattern="###0.00;-###0.00" isBlankWhenNull="true">
+											<reportElement stretchType="ElementGroupHeight" mode="Opaque" x="0" y="0" width="72" height="12" backcolor="#CDCDCD" uuid="ef423fca-914a-46be-adbc-c3fe2e0a62f3">
+												<property name="com.klexsoft.studio.unit.rightIndent" value="px"/>
+												<property name="com.klexsoft.studio.unit.height" value="cm"/>
+											</reportElement>
+											<box bottomPadding="0">
+												<pen lineWidth="0.0" lineColor="#FFFFFF"/>
+												<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+												<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											</box>
+											<textElement textAlignment="Right" markup="html">
+												<font fontName="Calibri" size="7.5" isBold="true"/>
+												<paragraph rightIndent="5"/>
+											</textElement>
+											<textFieldExpression><![CDATA[String.format("%.2f",(double)($V{SUM_VAT}.doubleValue()))]]></textFieldExpression>
+										</textField>
+									</frame>
+								</jr:columnFooter>
+								<jr:detailCell style="table 1_TD" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<textField textAdjust="StretchHeight" pattern="###0.00;-###0.00">
+										<reportElement style="table 1_TD" mode="Transparent" x="0" y="0" width="72" height="12" backcolor="#F5F5F5" uuid="79ad2ada-c869-45d6-a597-54174adee4ca"/>
+										<box bottomPadding="1"/>
+										<textElement textAlignment="Right" verticalAlignment="Middle">
+											<font fontName="Calibri" size="7.5" isPdfEmbedded="true"/>
+											<paragraph rightIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{VAT_AMOUNT}]]></textFieldExpression>
+									</textField>
+								</jr:detailCell>
+							</jr:column>
+							<jr:column width="64" uuid="be0f6651-b6b5-4ccd-8465-69682650943a">
+								<property name="com.klexsoft.studio.components.table.model.column.name" value="Column6"/>
+								<jr:columnHeader style="table 1_CH" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<property name="com.klexsoft.studio.unit.height" value="cm"/>
+									<box>
+										<pen lineColor="#FFFFFF"/>
+									</box>
+									<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+										<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="64" height="12" isRemoveLineWhenBlank="true" backcolor="#CDCDCD" uuid="f9381782-c47f-4402-bc25-4e78cf98e212">
+											<property name="com.klexsoft.studio.unit.height" value="cm"/>
+										</reportElement>
+										<box bottomPadding="2"/>
+										<textElement textAlignment="Right" verticalAlignment="Top" markup="html">
+											<font fontName="Calibri" size="7.5" isBold="true" isPdfEmbedded="true"/>
+											<paragraph rightIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{DC_TRAN_GROSS_AMT} +" "+$F{CURRENCY_ISO}]]></textFieldExpression>
+									</textField>
+								</jr:columnHeader>
+								<jr:columnFooter style="table 1_CH_1" height="25" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<box>
+										<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+										<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+										<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+										<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+									</box>
+									<frame>
+										<reportElement stretchType="ContainerHeight" mode="Opaque" x="0" y="0" width="64" height="25" backcolor="#FFFFFF" uuid="930450ec-fc4c-4a0f-828c-1cde6632b96b"/>
+										<box>
+											<pen lineWidth="0.0"/>
+											<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+											<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+										</box>
+										<textField textAdjust="StretchHeight" pattern="###0.00;-###0.00" isBlankWhenNull="true">
+											<reportElement stretchType="ElementGroupHeight" mode="Opaque" x="0" y="0" width="64" height="12" forecolor="#000000" backcolor="#FFFFFF" uuid="70e4bc04-6052-4e1f-9b65-4a636167a71a">
+												<property name="com.klexsoft.studio.unit.rightIndent" value="px"/>
+												<property name="com.klexsoft.studio.unit.height" value="cm"/>
+											</reportElement>
+											<box bottomPadding="0">
+												<pen lineWidth="1.0" lineStyle="Solid" lineColor="#5D6160"/>
+												<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#5D6160"/>
+												<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#5D6160"/>
+												<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#5D6160"/>
+												<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#5D6160"/>
+											</box>
+											<textElement textAlignment="Right" markup="html">
+												<font fontName="Calibri" size="7.5" isBold="true"/>
+												<paragraph rightIndent="5"/>
+											</textElement>
+											<textFieldExpression><![CDATA[String.format("%.2f",(double)($V{SUM_GROSS}.doubleValue()))]]></textFieldExpression>
+										</textField>
+										<textField textAdjust="StretchHeight" pattern="###0.00;-###0.00" isBlankWhenNull="true">
+											<reportElement stretchType="ElementGroupHeight" mode="Opaque" x="0" y="12" width="64" height="12" forecolor="#030000" backcolor="#FFFFFF" uuid="da499dfa-be9e-4997-9719-c106af137312">
+												<property name="com.klexsoft.studio.unit.rightIndent" value="px"/>
+												<property name="com.klexsoft.studio.unit.height" value="cm"/>
+												<printWhenExpression><![CDATA[$F{INVOICE_AMOUNT}!=$F{PAYMENT_AMOUNT}&&$F{PAYMENT_AMOUNT} != null]]></printWhenExpression>
+											</reportElement>
+											<box bottomPadding="0">
+												<pen lineWidth="1.0" lineStyle="Solid" lineColor="#5D6160"/>
+												<topPen lineStyle="Solid" lineColor="#5D6160"/>
+												<leftPen lineStyle="Solid" lineColor="#5D6160"/>
+												<bottomPen lineStyle="Solid" lineColor="#5D6160"/>
+												<rightPen lineStyle="Solid" lineColor="#5D6160"/>
+											</box>
+											<textElement textAlignment="Right" markup="html">
+												<font fontName="Calibri" size="7.5" isBold="true"/>
+												<paragraph rightIndent="5"/>
+											</textElement>
+											<textFieldExpression><![CDATA[String.format("%.2f",(double)($F{PAYMENT_AMOUNT}.doubleValue()))]]></textFieldExpression>
+										</textField>
+									</frame>
+								</jr:columnFooter>
+								<jr:detailCell style="table 1_TD" height="12" rowSpan="1">
+									<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+									<textField textAdjust="StretchHeight" pattern="###0.00;-###0.00">
+										<reportElement style="table 1_TD" mode="Transparent" x="0" y="0" width="64" height="12" backcolor="#F5F5F5" uuid="28ff7708-3fb9-49a4-b861-595a4a4baf50"/>
+										<box bottomPadding="0"/>
+										<textElement textAlignment="Right" verticalAlignment="Middle">
+											<font fontName="Calibri" size="7.5" isPdfEmbedded="true"/>
+											<paragraph rightIndent="5"/>
+										</textElement>
+										<textFieldExpression><![CDATA[$F{GROSS_AMOUNT}]]></textFieldExpression>
+									</textField>
+								</jr:detailCell>
+							</jr:column>
+						</jr:table>
+					</componentElement>
+					<frame>
+						<reportElement positionType="Float" x="10" y="0" width="150" height="68" uuid="a5605c4a-bc6f-43ff-90b4-a4123f979c5b"/>
+						<textField textAdjust="StretchHeight">
+							<reportElement positionType="Float" x="0" y="1" width="148" height="52" uuid="f8998eab-1db8-4be2-a66b-12b1be07acc6"/>
+							<textElement>
+								<font fontName="Calibri" size="7.5" isPdfEmbedded="true"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{FORMATTED_ADDRESS}]]></textFieldExpression>
+						</textField>
+					</frame>
+					<frame>
+						<reportElement positionType="Float" x="379" y="62" width="429" height="11" uuid="c31e6857-5ddd-4e5e-823b-6f8cd7483436"/>
+						<textField textAdjust="StretchHeight">
+							<reportElement key="" positionType="Float" x="0" y="0" width="429" height="11" uuid="5673c8c5-0864-4e19-9446-bc8845b4fd02">
+								<property name="com.klexsoft.studio.unit.width" value="cm"/>
+								<printWhenExpression><![CDATA[$F{COUNTRY_NO}==19]]></printWhenExpression>
+							</reportElement>
+							<box>
+								<pen lineWidth="0.5"/>
+							</box>
+							<textElement textAlignment="Center" markup="html">
+								<font fontName="Calibri" size="7.5" isBold="true"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$V{VatOutOfScopeMsg}]]></textFieldExpression>
+						</textField>
+					</frame>
+					<frame>
+						<reportElement positionType="Float" x="120" y="0" width="259" height="71" uuid="18992ce2-2e6e-4d40-92c6-01383948b3e5"/>
+						<frame>
+							<reportElement positionType="Float" x="49" y="25" width="209" height="11" uuid="40dcb6c3-3936-4948-b900-4d7da601d852">
+								<property name="com.klexsoft.studio.unit.height" value="cm"/>
+							</reportElement>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="136" y="-3" width="64" height="11" backcolor="#F5F5F5" uuid="074760d7-c15b-48cf-a9bc-1d69ef178842">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{PAYMENTDATE}]]></textFieldExpression>
+							</textField>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="29" y="-3" width="105" height="11" backcolor="#CDCDCD" uuid="3831a339-9f2b-4185-a6fa-02d5dd86fb1a">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+									<property name="com.klexsoft.studio.unit.width" value="cm"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5" isBold="false"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{DC_INV_DUE_DATE}]]></textFieldExpression>
+							</textField>
+						</frame>
+						<frame>
+							<reportElement positionType="Float" x="49" y="1" width="208" height="12" uuid="af474f5b-0665-46dd-902b-2a7e4c9b7c67">
+								<property name="com.klexsoft.studio.unit.y" value="cm"/>
+							</reportElement>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="136" y="-1" width="64" height="11" backcolor="#F5F5F5" uuid="ce78574e-dfd7-4ae9-bf6f-a4bb2a929d34">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{ACCOUNT_NO}]]></textFieldExpression>
+							</textField>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="29" y="-1" width="105" height="11" backcolor="#CDCDCD" uuid="e1fb0786-2fdf-4610-b94d-f7ee38a80906">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5" isBold="false"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{DC_ACC_NO}]]></textFieldExpression>
+							</textField>
+						</frame>
+						<frame>
+							<reportElement positionType="Float" x="49" y="13" width="209" height="11" uuid="9e7a5cb3-66b1-4479-88b1-0532b9bbb299">
+								<property name="com.klexsoft.studio.unit.height" value="cm"/>
+								<property name="com.klexsoft.studio.unit.y" value="cm"/>
+							</reportElement>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="136" y="-2" width="64" height="11" backcolor="#F5F5F5" uuid="47be6ff2-996a-40f2-abab-173e09bf9ced">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{INVOICEDATE}]]></textFieldExpression>
+							</textField>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="29" y="-2" width="105" height="11" backcolor="#CDCDCD" uuid="f2f13da2-a6d9-4bbf-9542-c05f3bcd8984">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5" isBold="false"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{DC_INV_DATE}]]></textFieldExpression>
+							</textField>
+						</frame>
+						<frame>
+							<reportElement positionType="Float" x="49" y="37" width="209" height="11" uuid="7aab70e6-4829-459e-8379-726f5c26d306">
+								<property name="com.klexsoft.studio.unit.height" value="cm"/>
+							</reportElement>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="29" y="-4" width="105" height="11" backcolor="#CDCDCD" uuid="b2adcfc7-9701-4922-87e4-52f941ea7cc3">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+									<property name="com.klexsoft.studio.unit.width" value="cm"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5" isBold="false"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{DC_INV_NO}]]></textFieldExpression>
+							</textField>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="136" y="-4" width="64" height="11" backcolor="#F5F5F5" uuid="40434149-b7bd-4255-b487-8d7cff858c78">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+									<property name="com.klexsoft.studio.unit.width" value="cm"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{EXT_INVOICE_NO}]]></textFieldExpression>
+							</textField>
+						</frame>
+						<frame>
+							<reportElement positionType="Float" x="49" y="49" width="209" height="11" uuid="4dcec9a8-25c1-4d0e-b963-6acd0de63771">
+								<property name="com.klexsoft.studio.unit.y" value="cm"/>
+								<property name="com.klexsoft.studio.unit.height" value="cm"/>
+							</reportElement>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="29" y="-5" width="105" height="11" backcolor="#CDCDCD" uuid="12204645-3c30-47f1-a719-f7f7095a85ff">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+									<property name="com.klexsoft.studio.unit.height" value="cm"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5" isBold="false"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{DC_PAY_METH}]]></textFieldExpression>
+							</textField>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="136" y="-5" width="64" height="11" backcolor="#F5F5F5" uuid="6a8270e4-62bd-4fb0-99f3-2cb7dbf36262">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+									<property name="com.klexsoft.studio.unit.width" value="cm"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{PAYMENT_METHOD}]]></textFieldExpression>
+							</textField>
+						</frame>
+						<frame>
+							<reportElement positionType="Float" x="49" y="60" width="209" height="11" uuid="f7cabb84-82d1-4043-b0e5-4123540e39c4">
+								<property name="com.klexsoft.studio.unit.y" value="cm"/>
+								<property name="com.klexsoft.studio.unit.height" value="cm"/>
+							</reportElement>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="29" y="-5" width="105" height="11" backcolor="#CDCDCD" uuid="7b241a06-13e1-4b62-8b5d-bcf45fb744aa">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+									<property name="com.klexsoft.studio.unit.height" value="cm"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5" isBold="false"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{D_PAYMENT_CURRENCY}]]></textFieldExpression>
+							</textField>
+							<textField textAdjust="StretchHeight">
+								<reportElement positionType="Float" stretchType="ContainerHeight" mode="Opaque" x="136" y="-5" width="64" height="11" backcolor="#F5F5F5" uuid="47abdade-b4d2-4df4-af7c-d6a67ddbbccc">
+									<property name="com.klexsoft.studio.unit.leftIndent" value="px"/>
+									<property name="com.klexsoft.studio.unit.width" value="cm"/>
+								</reportElement>
+								<box bottomPadding="2">
+									<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+								</box>
+								<textElement verticalAlignment="Top" markup="html">
+									<font fontName="Calibri" size="7.5"/>
+									<paragraph leftIndent="5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{CURRENCY_ISO}]]></textFieldExpression>
+							</textField>
+						</frame>
+					</frame>
+				</frame>
+				<frame>
+					<reportElement positionType="Float" x="0" y="75" width="812" height="128" uuid="2c755c90-6364-4d2c-ae28-933e2e80d529"/>
+					<frame>
+						<reportElement positionType="Float" x="0" y="0" width="812" height="129" uuid="d7f0e858-c342-4ce8-873a-ae971be8d8a1"/>
+						<subreport>
+							<reportElement positionType="Float" isPrintRepeatedValues="false" mode="Transparent" x="-2" y="25" width="813" height="12" isRemoveLineWhenBlank="true" forecolor="#FCFAFA" uuid="1d127588-dbb3-4e20-8008-315f6c2b40e1">
+								<property name="com.klexsoft.studio.unit.height" value="px"/>
+								<printWhenExpression><![CDATA[$P{PN_FUELINVOICE}=="Y"]]></printWhenExpression>
+							</reportElement>
+							<subreportParameter name="PN_CLIENT_NO">
+								<subreportParameterExpression><![CDATA[$F{CLIENT_NO}]]></subreportParameterExpression>
+							</subreportParameter>
+							<subreportParameter name="PN_INVOICE_NO">
+								<subreportParameterExpression><![CDATA[$F{INVOICE_NO}]]></subreportParameterExpression>
+							</subreportParameter>
+							<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+							<subreportExpression><![CDATA["repo:KlexTemplate4TransactionDetails_EV.jrxml"]]></subreportExpression>
+						</subreport>
+						<rectangle>
+							<reportElement positionType="Float" x="-2" y="21" width="813" height="2" backcolor="#666666" uuid="8515d4e4-7096-4a24-a92a-c4581d2371e5">
+								<property name="com.klexsoft.studio.unit.height" value="cm"/>
+								<property name="com.klexsoft.studio.unit.width" value="cm"/>
+							</reportElement>
+							<graphicElement>
+								<pen lineStyle="Solid" lineColor="#666666"/>
+							</graphicElement>
+						</rectangle>
+						<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+							<reportElement positionType="Float" x="2" y="2" width="161" height="15" uuid="204f19ad-9d7b-42c1-a0b1-a39edd304418"/>
+							<textElement textAlignment="Left" verticalAlignment="Bottom" markup="html">
+								<font fontName="Calibri" size="10"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{DC_TRAN_DETAIL}]]></textFieldExpression>
+						</textField>
+						<frame>
+							<reportElement positionType="Float" x="2" y="49" width="810" height="77" isRemoveLineWhenBlank="true" uuid="99126dd2-67cf-453a-bcea-1edc09f7ada0">
+								<property name="com.klexsoft.studio.unit.y" value="px"/>
+							</reportElement>
+							<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+								<reportElement positionType="Float" x="0" y="45" width="809" height="16" isRemoveLineWhenBlank="true" uuid="c3b6333a-99b8-462b-a357-666dbac0b0f1"/>
+								<box>
+									<pen lineWidth="0.0"/>
+									<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+									<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+									<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+									<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+								</box>
+								<textElement textAlignment="Center" verticalAlignment="Middle" markup="html">
+									<font fontName="Calibri" size="7.5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{COUNTRY_NO}==$F{DISCOUNTCOUNTRY}?$F{WEX_FLAG}!= "Y" ?
+$F{COMPANY_MESSAGE}+"<br>"+$F{DIV_MESSAGE}+"<br>"+$F{DC_DISCOUNT_MSG}:$F{COUNTRY_OF_ORIGIN}==$F{COUNTRY_NO}?$F{COMPANY_MESSAGE}+"<br>"+$F{DIV_MESSAGE}+"<br>"+$F{DC_DISCOUNT_MSG} :$F{DC_DISCOUNT_MSG}: $F{WEX_FLAG}!= "Y" ?$F{COMPANY_MESSAGE}+"<br>"+$F{DIV_MESSAGE}:$F{COUNTRY_OF_ORIGIN}==$F{COUNTRY_NO}?$F{COMPANY_MESSAGE}+"<br>"+$F{DIV_MESSAGE} : ""]]></textFieldExpression>
+							</textField>
+							<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+								<reportElement positionType="Float" x="0" y="0" width="809" height="16" isRemoveLineWhenBlank="true" uuid="a6818d57-5b53-4896-9843-69d50058fb56"/>
+								<textElement textAlignment="Center" verticalAlignment="Justified" markup="html">
+									<font fontName="Calibri" size="7.5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{VARIABLE1} != null?$F{DC_EXTRA_MSG}:$F{COMPANY_NAME}+" "+$F{DC_CO_VAT_TXT}+": "  +$F{VAT_NUMBER}]]></textFieldExpression>
+							</textField>
+							<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+								<reportElement positionType="Float" x="-1" y="29" width="809" height="16" isRemoveLineWhenBlank="true" uuid="b65ee337-37c4-4480-afb5-dd2eaafadd77"/>
+								<textElement textAlignment="Center" verticalAlignment="Justified" markup="html">
+									<font fontName="Calibri" size="7.5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{CNTRY_NO}==14&&$F{COUNTRY_OF_ORIGIN}==14?$F{VAT_INV_MSG}:$F{CNTRY_NO}==14&&$F{COUNTRY_OF_ORIGIN}!=14?"":$F{CNTRY_NO}!=14&&$F{COUNTRY_OF_ORIGIN}==14?"":$F{VAT_INV_MSG}]]></textFieldExpression>
+							</textField>
+							<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+								<reportElement positionType="Float" x="0" y="61" width="809" height="16" isRemoveLineWhenBlank="true" uuid="d1e571db-5bc4-44d3-a0a1-117c24adf099">
+									<printWhenExpression><![CDATA[$P{PN_BRAND_NO}==2&&$F{VARIABLE} ==null&&$F{WEX_FLAG}!='Y']]></printWhenExpression>
+								</reportElement>
+								<textElement textAlignment="Center" verticalAlignment="Justified" markup="html">
+									<font fontName="Calibri" size="7.5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{TRAD_COMPANY}+' '+$F{TRADING_MSG}]]></textFieldExpression>
+							</textField>
+							<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+								<reportElement positionType="Float" stretchType="ContainerHeight" x="0" y="16" width="810" height="13" isRemoveLineWhenBlank="true" uuid="aac1e2e6-0396-435e-a9ea-e151407a8ea3">
+									<printWhenExpression><![CDATA[$F{BRAND_NO}==30&&$F{PAYMENTAMOUNT}> 0]]></printWhenExpression>
+								</reportElement>
+								<textElement textAlignment="Center" markup="html">
+									<font fontName="Calibri" size="7.5"/>
+								</textElement>
+								<textFieldExpression><![CDATA[$F{PAYMENT_TYPE}!= 'D'?$F{MANNUALPAYMENTMESSAGE}: $F{DD_CURRENCY}==1 &&$F{SEPA_TYPE}!= null?$F{DD_MESSAGE}:  $V{message5}]]></textFieldExpression>
+							</textField>
+						</frame>
+						<subreport>
+							<reportElement positionType="Float" mode="Transparent" x="-2" y="37" width="813" height="12" isRemoveLineWhenBlank="true" forecolor="#FCFAFA" uuid="b2720efc-577d-4983-8d92-0ac343f773b9">
+								<property name="com.klexsoft.studio.unit.y" value="px"/>
+								<property name="com.klexsoft.studio.unit.height" value="px"/>
+								<printWhenExpression><![CDATA[$P{PN_EVINVOICE}=="Y"]]></printWhenExpression>
+							</reportElement>
+							<subreportParameter name="PN_CLIENT_NO">
+								<subreportParameterExpression><![CDATA[$F{CLIENT_NO}]]></subreportParameterExpression>
+							</subreportParameter>
+							<subreportParameter name="PN_INVOICE_NO">
+								<subreportParameterExpression><![CDATA[$F{INVOICE_NO}]]></subreportParameterExpression>
+							</subreportParameter>
+							<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+							<subreportExpression><![CDATA["repo:KlexTemplate_TransactionDetails_EV.jrxml"]]></subreportExpression>
+						</subreport>
+					</frame>
+				</frame>
+			</frame>
+			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+				<reportElement x="-1" y="48" width="168" height="45" uuid="091d9d86-c502-4f7d-95f1-28126088fde1">
+					<printWhenExpression><![CDATA[$F{GROUP_LOGO}!=null]]></printWhenExpression>
+				</reportElement>
+				<textElement markup="html">
+					<font fontName="Calibri" size="18"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{DC_TRAN_TYPE}]]></textFieldExpression>
+			</textField>
+			<image scaleImage="RetainShape" hAlign="Right" vAlign="Top" onErrorType="Blank">
+				<reportElement x="-1" y="14" width="118" height="31" isRemoveLineWhenBlank="true" uuid="3f028bef-c211-4af9-b8b3-a8aac67813bc">
+					<property name="com.klexsoft.studio.unit.width" value="px"/>
+					<property name="com.klexsoft.studio.unit.height" value="px"/>
+					<property name="com.klexsoft.studio.unit.x" value="px"/>
+					<property name="com.klexsoft.studio.unit.y" value="px"/>
+				</reportElement>
+				<imageExpression><![CDATA[$F{GROUP_LOGO}]]></imageExpression>
+			</image>
+		</band>
+		<band height="39">
+			<property name="com.klexsoft.studio.layout" value="com.klexsoft.studio.editor.layout.FreeLayout"/>
+			<property name="com.klexsoft.studio.unit.height" value="cm"/>
+			<printWhenExpression><![CDATA[$F{ASNFVARIABLE} != null]]></printWhenExpression>
+			<frame>
+				<reportElement positionType="Float" x="698" y="2" width="118" height="33" uuid="db5cc71e-a925-45fd-8b31-bcbef0fa34f4">
+					<property name="com.klexsoft.studio.unit.x" value="px"/>
+					<property name="com.klexsoft.studio.unit.width" value="px"/>
+					<property name="com.klexsoft.studio.unit.height" value="px"/>
+					<printWhenExpression><![CDATA[$F{ASNFVARIABLE}!=null]]></printWhenExpression>
+				</reportElement>
+				<image scaleImage="RetainShape" hAlign="Right" onErrorType="Blank">
+					<reportElement positionType="Float" x="0" y="0" width="118" height="33" uuid="2e33f32d-e892-45bb-bfc7-483585a5e5e9">
+						<property name="com.klexsoft.studio.unit.y" value="pixel"/>
+						<property name="com.klexsoft.studio.unit.width" value="px"/>
+						<property name="com.klexsoft.studio.unit.height" value="px"/>
+						<property name="com.klexsoft.studio.unit.x" value="px"/>
+					</reportElement>
+					<imageExpression><![CDATA["repo:Asnef_logo_BW.jpg"]]></imageExpression>
+				</image>
+			</frame>
+		</band>
+	</detail>
+</klexReport>

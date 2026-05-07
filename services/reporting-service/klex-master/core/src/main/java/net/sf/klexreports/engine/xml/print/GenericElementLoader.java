@@ -1,0 +1,104 @@
+/*
+ * KlexReports - Free Java Reporting Library.
+ * Copyright (C) 2001 - 2023 Cloud Software Group, Inc. All rights reserved.
+ * http://www.klexsoft.com
+ *
+ * Unless you have purchased a commercial license agreement from Klexsoft,
+ * the following license terms apply:
+ *
+ * This program is part of KlexReports.
+ *
+ * KlexReports is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * KlexReports is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with KlexReports. If not, see <http://www.gnu.org/licenses/>.
+ */
+package net.sf.klexreports.engine.xml.print;
+
+import java.util.function.Consumer;
+
+import net.sf.klexreports.engine.JRGenericElementType;
+import net.sf.klexreports.engine.JRGenericPrintElement;
+import net.sf.klexreports.engine.KlexPrint;
+import net.sf.klexreports.engine.base.JRBaseGenericPrintElement;
+import net.sf.klexreports.engine.util.JRValueStringUtils;
+import net.sf.klexreports.engine.xml.JRXmlConstants;
+
+/**
+ * 
+ * @author Lucian Chirita (lucianc@users.sourceforge.net)
+ */
+public class GenericElementLoader
+{
+	
+	private static final GenericElementLoader INSTANCE = new GenericElementLoader();
+	
+	public static GenericElementLoader instance()
+	{
+		return INSTANCE;
+	}
+
+	public void loadGenericElement(XmlLoader xmlLoader, KlexPrint klexPrint, Consumer<? super JRGenericPrintElement> consumer)
+	{
+		JRBaseGenericPrintElement genericElement = new JRBaseGenericPrintElement(klexPrint.getDefaultStyleProvider());
+		
+		xmlLoader.loadElements(element -> 
+		{
+			switch (element)
+			{
+			case JRXmlConstants.ELEMENT_reportElement:
+				ReportElementLoader.instance().loadReportElement(xmlLoader, klexPrint, genericElement);
+				break;
+			case JRXmlConstants.ELEMENT_genericElementType:
+				loadType(xmlLoader, genericElement);
+				break;
+			case JRXmlConstants.ELEMENT_genericElementParameter:
+				loadParameter(xmlLoader, genericElement);
+				break;
+			default:
+				xmlLoader.unexpectedElement(element);
+				break;
+			}
+		});
+		
+		consumer.accept(genericElement);
+	}
+
+	protected void loadType(XmlLoader xmlLoader, JRBaseGenericPrintElement genericElement)
+	{
+		String namespace = xmlLoader.getAttribute(JRXmlConstants.ATTRIBUTE_namespace);
+		String name = xmlLoader.getAttribute(JRXmlConstants.ATTRIBUTE_name);
+		xmlLoader.endElement();
+		JRGenericElementType type = new JRGenericElementType(namespace, name);
+		genericElement.setGenericType(type);
+	}
+
+	private void loadParameter(XmlLoader xmlLoader, JRBaseGenericPrintElement genericElement)
+	{
+		String name = xmlLoader.getAttribute(JRXmlConstants.ATTRIBUTE_name);
+		xmlLoader.loadElements(element -> 
+		{
+			switch (element)
+			{
+			case JRXmlConstants.ELEMENT_genericElementParameterValue:
+				String valueClass = xmlLoader.getAttribute(JRXmlConstants.ATTRIBUTE_class);
+				String valueText = xmlLoader.loadText(true);
+				Object value = JRValueStringUtils.deserialize(valueClass, valueText);
+				genericElement.setParameterValue(name, value);
+				break;
+			default:
+				xmlLoader.unexpectedElement(element);
+				break;
+			}
+		});
+	}
+	
+}

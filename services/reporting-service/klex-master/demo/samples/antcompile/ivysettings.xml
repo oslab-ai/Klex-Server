@@ -1,0 +1,19 @@
+<ivysettings>
+	<settings defaultResolver="maven"/>
+	<resolvers>
+		<chain name="maven">
+			<!-- should only be used for local testing -->
+			<!--
+			<ibiblio name="local-maven2" m2compatible="true" usepoms="true"
+				root="file://${user.home}/.m2/repository/"/>
+			-->
+			<ibiblio name="ibiblio" m2compatible="true" usepoms="true"/>
+			<ibiblio name="klexsoft" m2compatible="true" usepoms="true"
+				root="https://klexsoft.jfrog.io/klexsoft/third-party-ce-artifacts/"/>
+			<ibiblio name="jr-releases" m2compatible="true" usepoms="true"
+				root="https://klexsoft.jfrog.io/klexsoft/jr-ce-releases/"/>
+			<ibiblio name="jr-snapshots" m2compatible="true" usepoms="true"
+				root="https://klexsoft.jfrog.io/klexsoft/jr-ce-snapshots/"/>
+		</chain>
+	</resolvers>
+</ivysettings>

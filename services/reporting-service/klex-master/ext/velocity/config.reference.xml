@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configReference>
+
+  <category key="net.sf.klexreports.metadata.property.category:other">
+    <name>Other</name>
+  </category>
+
+
+  <!-- net.sf.klexreports.velocity.{arbitrary_suffix} -->
+  
+  <configProperty name="net.sf.klexreports.velocity.{arbitrary_suffix}">
+    <description>
+Properties with this prefix are loaded into an <code>org.apache.velocity.app.VelocityEngine</code> instance object in 
+order to process velocity templates.
+    </description>
+  </configProperty>
+  
+  
+</configReference>

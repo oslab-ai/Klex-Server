@@ -1,0 +1,121 @@
+/*
+ * KlexReports - Free Java Reporting Library.
+ * Copyright (C) 2001 - 2023 Cloud Software Group, Inc. All rights reserved.
+ * http://www.klexsoft.com
+ *
+ * Unless you have purchased a commercial license agreement from Klexsoft,
+ * the following license terms apply:
+ *
+ * This program is part of KlexReports.
+ *
+ * KlexReports is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * KlexReports is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with KlexReports. If not, see <http://www.gnu.org/licenses/>.
+ */
+package net.sf.klexreports.interactivity.headertoolbar.actions;
+
+import java.util.Iterator;
+import java.util.List;
+
+import net.sf.klexreports.components.table.BaseColumn;
+import net.sf.klexreports.components.table.StandardTable;
+import net.sf.klexreports.components.table.util.TableUtil;
+import net.sf.klexreports.engine.JRConstants;
+import net.sf.klexreports.interactivity.commands.Command;
+import net.sf.klexreports.interactivity.commands.CommandException;
+import net.sf.klexreports.interactivity.commands.CommandStack;
+import net.sf.klexreports.interactivity.headertoolbar.actions.ResizeColumnCommand.ColumnGroupInfo;
+import net.sf.klexreports.interactivity.headertoolbar.actions.ResizeColumnCommand.ColumnUtil;
+
+/**
+ * @author Narcis Marcu (narcism@users.sourceforge.net)
+ */
+public class MoveColumnCommand implements Command 
+{
+	
+	private static final long serialVersionUID = JRConstants.SERIAL_VERSION_UID;
+	
+	private StandardTable table;
+	private MoveColumnData moveColumnData;
+	private CommandStack individualResizeCommandStack;
+	
+	
+	public MoveColumnCommand(StandardTable table, MoveColumnData moveColumnData) 
+	{
+		this.table = table;
+		this.moveColumnData = moveColumnData;
+		this.individualResizeCommandStack = new CommandStack();
+	}
+
+	
+	@Override
+	public void execute() throws CommandException 
+	{
+		moveColumns(moveColumnData);
+	}
+	
+	private void moveColumns(MoveColumnData moveColumnData) throws CommandException 
+	{
+		int srcColIndex = moveColumnData.getColumnToMoveIndex();
+		int destColIndex = moveColumnData.getColumnToMoveNewIndex();
+		
+		List<BaseColumn> allColumns = TableUtil.getAllColumns(table);
+
+		BaseColumn srcColumn = allColumns.get(srcColIndex);
+		BaseColumn destColumn = allColumns.get(destColIndex);
+
+		List<ColumnGroupInfo> srcColParentColumnGroups = new ColumnUtil(srcColIndex).getParentColumnGroups(table.getColumns());
+		List<ColumnGroupInfo> destColParentColumnGroups = new ColumnUtil(destColIndex).getParentColumnGroups(table.getColumns());
+	
+		List<BaseColumn> srcSiblingColumns = 
+			(srcColParentColumnGroups == null || srcColParentColumnGroups.isEmpty()) 
+			? table.getColumns() 
+			: srcColParentColumnGroups.get(srcColParentColumnGroups.size() - 1).columnGroup.getColumns();
+
+		int srcSiblingColIndex = srcSiblingColumns.indexOf(srcColumn);
+		int destSiblingColIndex = srcSiblingColumns.indexOf(destColumn);
+		if (
+			destSiblingColIndex < 0 
+			&& (destColParentColumnGroups != null && !destColParentColumnGroups.isEmpty())
+			)
+		{
+			Iterator<ColumnGroupInfo> it = destColParentColumnGroups.iterator();
+			while (destSiblingColIndex < 0 && it.hasNext())
+			{
+				ColumnGroupInfo columnGroupInfo = it.next();
+				destSiblingColIndex = srcSiblingColumns.indexOf(columnGroupInfo.columnGroup);
+			}
+		}
+			
+		if (destSiblingColIndex < 0)
+		{
+			//the dest column is not a sibling of the src column nor a descendant of a sibling; move is not possible
+		}
+		else if (srcSiblingColIndex != destSiblingColIndex)
+		{
+			individualResizeCommandStack.execute(new SimpleMoveColumnCommand(srcSiblingColumns, srcColumn, srcSiblingColIndex, destSiblingColIndex));
+		}
+	}
+
+	@Override
+	public void undo() 
+	{
+		individualResizeCommandStack.undoAll();
+	}
+
+	@Override
+	public void redo() 
+	{
+		individualResizeCommandStack.redoAll();
+	}
+
+}

@@ -1,0 +1,83 @@
+/*
+ * KlexReports - Free Java Reporting Library.
+ * Copyright (C) 2001 - 2023 Cloud Software Group, Inc. All rights reserved.
+ * http://www.klexsoft.com
+ *
+ * Unless you have purchased a commercial license agreement from Klexsoft,
+ * the following license terms apply:
+ *
+ * This program is part of KlexReports.
+ *
+ * KlexReports is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * KlexReports is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with KlexReports. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+import java.util.HashMap;
+import java.util.Map;
+
+import net.sf.klexreports.engine.JREmptyDataSource;
+import net.sf.klexreports.engine.JRException;
+import net.sf.klexreports.engine.KlexExportManager;
+import net.sf.klexreports.engine.KlexFillManager;
+import net.sf.klexreports.engine.util.AbstractSampleApp;
+
+/**
+ * @author Lucian Chirita (lucianc@users.sourceforge.net)
+ */
+public class Java5App extends AbstractSampleApp
+{
+
+
+	/**
+	 *
+	 */
+	public static void main(String[] args) 
+	{
+		main(new Java5App(), args);
+	}
+	
+	
+	@Override
+	public void test() throws JRException
+	{
+		compile();
+		fill();
+		pdf();
+	}
+	
+	
+	/**
+	 *
+	 */
+	public void fill() throws JRException
+	{
+		long start = System.currentTimeMillis();
+		Map<String,Object> parameters = new HashMap<String,Object>();
+		parameters.put("greeting", Greeting.bye);
+		
+		KlexFillManager.fillReportToFile("target/reports/Java5Report.klex", parameters, new JREmptyDataSource());
+		System.err.println("Filling time : " + (System.currentTimeMillis() - start));
+	}
+	
+	
+	/**
+	 *
+	 */
+	public void pdf() throws JRException
+	{
+		long start = System.currentTimeMillis();
+		KlexExportManager.exportReportToPdfFile("target/reports/Java5Report.jrprint");
+		System.err.println("PDF creation time : " + (System.currentTimeMillis() - start));
+	}
+
+}

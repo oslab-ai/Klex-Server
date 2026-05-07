@@ -1,0 +1,304 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  @apply text-gray-900 dark:text-gray-100;
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+:is(.dark) body {
+  background-color: #020617;
+}
+
+/* ============================================
+   GLASSMORPHISM
+   ============================================ */
+.glass {
+  @apply bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl;
+}
+
+.glass-card {
+  @apply glass rounded-2xl border border-white/20 dark:border-gray-700/40 shadow-card;
+}
+
+.glass-card-hover {
+  @apply glass-card hover:shadow-card-hover hover:border-primary-200/40 dark:hover:border-primary-700/40 transition-all duration-300;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+.btn {
+  @apply px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98];
+}
+
+.btn-primary {
+  @apply btn bg-gradient-to-r from-primary-600 to-primary-500 text-white hover:from-primary-700 hover:to-primary-600 focus:ring-primary-500 shadow-glow-sm hover:shadow-glow;
+}
+
+.btn-secondary {
+  @apply btn bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700/80 dark:text-gray-200 dark:hover:bg-gray-600 focus:ring-gray-400 border border-gray-200 dark:border-gray-600;
+}
+
+.btn-ghost {
+  @apply btn bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800;
+}
+
+.btn-danger {
+  @apply btn bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800;
+}
+
+/* ============================================
+   INPUTS
+   ============================================ */
+.input {
+  @apply w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white dark:bg-gray-800/80 dark:border-gray-600/80 focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-400 transition-all duration-200 text-sm;
+}
+
+.input-icon {
+  padding-left: 2.75rem !important;
+}
+
+/* ============================================
+   CARDS
+   ============================================ */
+.card {
+  @apply bg-white dark:bg-gray-800/90 rounded-2xl shadow-card border border-gray-100 dark:border-gray-700/60;
+}
+
+.card-interactive {
+  @apply card hover:shadow-card-hover hover:border-primary-100 dark:hover:border-primary-800/60 transition-all duration-300 cursor-pointer;
+}
+
+/* ============================================
+   SIDEBAR NAVIGATION
+   ============================================ */
+.sidebar {
+  @apply fixed left-0 top-0 h-screen bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-40 flex flex-col transition-all duration-300 ease-in-out;
+}
+
+.sidebar-item {
+  @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-200 cursor-pointer;
+}
+
+.sidebar-item-active {
+  @apply bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-semibold;
+}
+
+.sidebar-section-label {
+  @apply text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-3 mb-1;
+}
+
+/* ============================================
+   STAT CARDS
+   ============================================ */
+.stat-card {
+  @apply card p-4 flex items-center gap-4;
+}
+
+.stat-card-icon {
+  @apply w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0;
+}
+
+/* ============================================
+   STEP INDICATOR
+   ============================================ */
+.step-indicator {
+  @apply w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all duration-300;
+}
+
+.step-indicator.active {
+  @apply bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-glow-sm;
+}
+
+.step-indicator.completed {
+  @apply bg-green-500 text-white;
+}
+
+.step-indicator.inactive {
+  @apply bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500;
+}
+
+/* ============================================
+   REPORT TILE
+   ============================================ */
+.report-tile {
+  @apply transform transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover;
+}
+
+/* ============================================
+   LOADING
+   ============================================ */
+.skeleton {
+  @apply bg-gray-100 dark:bg-gray-800 rounded-xl relative overflow-hidden;
+}
+.skeleton::after {
+  content: '';
+  @apply absolute inset-0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: shimmer 2s linear infinite;
+}
+:is(.dark) .skeleton::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.slide-in-right {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ============================================
+   MODAL
+   ============================================ */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3rem 1rem;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  overflow-y: auto;
+}
+
+.modal-content {
+  @apply bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-2xl w-full p-6;
+  animation: scaleIn 0.2s ease-out;
+  flex-shrink: 0;
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+}
+
+@keyframes scaleIn {
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ============================================
+   SCROLLBAR
+   ============================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}
+
+/* ============================================
+   CONTEXT MENU
+   ============================================ */
+.context-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 200px;
+  @apply bg-white dark:bg-gray-800 rounded-xl border border-gray-200/60 dark:border-gray-700/60 py-1.5 shadow-xl;
+  animation: scaleIn 0.15s ease-out;
+}
+
+.context-menu-item {
+  @apply w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors;
+}
+
+.context-menu-item-accent {
+  @apply text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30;
+}
+
+.context-menu-divider {
+  @apply my-1 border-t border-gray-100 dark:border-gray-700/50;
+}
+
+/* ============================================
+   STATUS DOT
+   ============================================ */
+.status-dot {
+  @apply w-2 h-2 rounded-full;
+}
+.status-dot-active {
+  @apply bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)];
+  animation: glowPulse 2s ease-in-out infinite;
+}
+.status-dot-inactive {
+  @apply bg-gray-400;
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ============================================
+   BADGE
+   ============================================ */
+.badge {
+  @apply inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full;
+}
+.badge-primary {
+  @apply bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300;
+}
+.badge-success {
+  @apply bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300;
+}
+.badge-warning {
+  @apply bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300;
+}
+.badge-danger {
+  @apply bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300;
+}

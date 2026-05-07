@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 8.0.0.final using JasperReports Library version develop-55-SNAPSHOT-17810285d8e6cce831451cc942336af32b7686c2  -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/klexreport.xsd" name="Customers" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="e34c4cf8-c2ef-47d8-b32f-a9fd2972b807">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.sql.SQLQueryDesigner.sash.w1" value="479"/>
+	<property name="com.jaspersoft.studio.data.sql.SQLQueryDesigner.sash.w2" value="521"/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="PostgreSQL Data Adapter"/>
+	<queryString language="SQL">
+		<![CDATA[select * from  "Customers" ]]>
+	</queryString>
+	<field name="Customer Name" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="Customer Name"/>
+		<property name="com.jaspersoft.studio.field.label" value="Customer Name"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="Customers"/>
+	</field>
+	<field name="Province" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="Province"/>
+		<property name="com.jaspersoft.studio.field.label" value="Province"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="Customers"/>
+	</field>
+	<field name="Region" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="Region"/>
+		<property name="com.jaspersoft.studio.field.label" value="Region"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="Customers"/>
+	</field>
+	<field name="Customer Segment" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="Customer Segment"/>
+		<property name="com.jaspersoft.studio.field.label" value="Customer Segment"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="Customers"/>
+	</field>
+	<background>
+		<band/>
+	</background>
+	<title>
+		<band height="72">
+			<frame>
+				<reportElement mode="Opaque" x="-20" y="-20" width="595" height="92" backcolor="#006699" uuid="5b4bd6c2-00b3-4e6f-a13a-35e663bce75e"/>
+				<staticText>
+					<reportElement x="20" y="20" width="234" height="43" forecolor="#FFFFFF" uuid="8580cbfc-2743-4fb3-ae24-54474603d728"/>
+					<textElement>
+						<font size="34" isBold="true"/>
+					</textElement>
+					<text><![CDATA[TITLE]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="395" y="43" width="180" height="20" forecolor="#FFFFFF" uuid="917a47b6-26bc-4e67-9573-cf4a681d59d9"/>
+					<textElement textAlignment="Right">
+						<font size="14" isBold="false"/>
+					</textElement>
+					<text><![CDATA[Add a description here]]></text>
+				</staticText>
+			</frame>
+		</band>
+	</title>
+	<pageHeader>
+		<band height="13"/>
+	</pageHeader>
+	<columnHeader>
+		<band height="21">
+			<line>
+				<reportElement x="-20" y="20" width="595" height="1" forecolor="#666666" uuid="7d4deaf7-470f-44d1-a0d3-a9e3cc7f3247"/>
+			</line>
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="0" width="138" height="20" forecolor="#006699" backcolor="#E6E6E6" uuid="46b62a2c-3d15-4fb4-a75e-c9f5cf536a90">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="4dedd246-4b8b-4d7c-b558-ef210353623d"/>
+				</reportElement>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Customer Name]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="138" y="0" width="138" height="20" forecolor="#006699" backcolor="#E6E6E6" uuid="08ffe650-ec94-4c18-a4b4-2fc32ae49548">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="3f2a6c03-fd48-4b1b-a386-e9b6729d0fac"/>
+				</reportElement>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Province]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="276" y="0" width="138" height="20" forecolor="#006699" backcolor="#E6E6E6" uuid="6cd77aac-119f-40b3-9528-5d7c7022e597">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="6f0d2339-96ac-4a1b-9883-8bf3ca9ee9dd"/>
+				</reportElement>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Region]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="414" y="0" width="138" height="20" forecolor="#006699" backcolor="#E6E6E6" uuid="d013693d-3944-4054-baea-d567df1abf3a">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="13b9223a-25c8-4cd1-9943-1c5661da196d"/>
+				</reportElement>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Customer Segment]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="20">
+			<line>
+				<reportElement positionType="FixRelativeToBottom" x="0" y="19" width="555" height="1" uuid="fa2a3b0f-0b8d-45f0-bccb-8d8701a2b6b5"/>
+			</line>
+			<textField textAdjust="StretchHeight">
+				<reportElement x="0" y="0" width="138" height="20" uuid="c9d56764-4102-4e7d-bbb4-831b604187a2">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="4dedd246-4b8b-4d7c-b558-ef210353623d"/>
+				</reportElement>
+				<textElement>
+					<font size="14"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{Customer Name}]]></textFieldExpression>
+			</textField>
+			<textField textAdjust="StretchHeight">
+				<reportElement x="138" y="0" width="138" height="20" uuid="44d37065-7d31-4d90-b1dc-6363e2d2328e">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="3f2a6c03-fd48-4b1b-a386-e9b6729d0fac"/>
+				</reportElement>
+				<textElement>
+					<font size="14"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{Province}]]></textFieldExpression>
+			</textField>
+			<textField textAdjust="StretchHeight">
+				<reportElement x="276" y="0" width="138" height="20" uuid="eef6d889-18db-4d1d-99de-e58090ed2b21">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="6f0d2339-96ac-4a1b-9883-8bf3ca9ee9dd"/>
+				</reportElement>
+				<textElement>
+					<font size="14"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{Region}]]></textFieldExpression>
+			</textField>
+			<textField textAdjust="StretchHeight">
+				<reportElement x="414" y="0" width="138" height="20" uuid="ef6fdaa2-438a-46cb-a80d-a6bdde343e28">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="13b9223a-25c8-4cd1-9943-1c5661da196d"/>
+				</reportElement>
+				<textElement>
+					<font size="14"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{Customer Segment}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band/>
+	</columnFooter>
+	<pageFooter>
+		<band height="17">
+			<textField>
+				<reportElement mode="Opaque" x="0" y="4" width="515" height="13" backcolor="#E6E6E6" uuid="52d5cfb6-11bb-4a18-8908-3a632978446c"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA["Page "+$V{PAGE_NUMBER}+" of"]]></textFieldExpression>
+			</textField>
+			<textField evaluationTime="Report">
+				<reportElement mode="Opaque" x="515" y="4" width="40" height="13" backcolor="#E6E6E6" uuid="a0abaeb4-48fc-446d-afb5-ad19febd5566"/>
+				<textFieldExpression><![CDATA[" " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+			<textField pattern="EEEEE dd MMMMM yyyy">
+				<reportElement x="0" y="4" width="100" height="13" uuid="384142a9-6249-470b-940d-9dbe9cd9bfd9"/>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+	<summary>
+		<band/>
+	</summary>
+</jasperReport>

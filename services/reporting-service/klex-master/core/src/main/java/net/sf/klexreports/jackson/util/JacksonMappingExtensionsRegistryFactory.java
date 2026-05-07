@@ -1,0 +1,69 @@
+/*
+ * KlexReports - Free Java Reporting Library.
+ * Copyright (C) 2001 - 2023 Cloud Software Group, Inc. All rights reserved.
+ * http://www.klexsoft.com
+ *
+ * Unless you have purchased a commercial license agreement from Klexsoft,
+ * the following license terms apply:
+ *
+ * This program is part of KlexReports.
+ *
+ * KlexReports is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * KlexReports is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with KlexReports. If not, see <http://www.gnu.org/licenses/>.
+ */
+package net.sf.klexreports.jackson.util;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+import net.sf.klexreports.engine.JRPropertiesMap;
+import net.sf.klexreports.engine.JRPropertiesUtil;
+import net.sf.klexreports.engine.JRPropertiesUtil.PropertySuffix;
+import net.sf.klexreports.extensions.DefaultExtensionsRegistry;
+import net.sf.klexreports.extensions.ExtensionsRegistry;
+import net.sf.klexreports.extensions.ExtensionsRegistryFactory;
+import net.sf.klexreports.extensions.ListExtensionRegistry;
+
+/**
+ * @author Teodor Danciu (teodord@users.sourceforge.net)
+ */
+public class JacksonMappingExtensionsRegistryFactory implements ExtensionsRegistryFactory
+{
+
+	/**
+	 * 
+	 */
+	public final static String JACKSON_MAPPING_PROPERTY_PREFIX = 
+		DefaultExtensionsRegistry.PROPERTY_REGISTRY_PREFIX + "jackson.mapping.";
+	
+	@Override
+	public ExtensionsRegistry createRegistry(String registryId, JRPropertiesMap properties)
+	{
+		List<PropertySuffix> jacksonMappingProperties = JRPropertiesUtil.getProperties(properties, JACKSON_MAPPING_PROPERTY_PREFIX);
+		List<JacksonMapping> jacksonMappings = new ArrayList<>();
+		for (Iterator<PropertySuffix> it = jacksonMappingProperties.iterator(); it.hasNext();)
+		{
+			PropertySuffix jacksonMappingProp = it.next();
+			jacksonMappings.add(
+				new JacksonMapping(
+					jacksonMappingProp.getSuffix(), 
+					jacksonMappingProp.getValue()
+					)
+				);
+		}
+		
+		return new ListExtensionRegistry<JacksonMapping>(JacksonMapping.class, jacksonMappings);
+	}
+
+}

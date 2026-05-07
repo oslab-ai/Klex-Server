@@ -1,0 +1,12 @@
+net.sf.klexreports.view.save.JRPrintSaveContributor$Factory
+net.sf.klexreports.view.save.JRRtfSaveContributor$Factory
+net.sf.klexreports.view.save.JROdtSaveContributor$Factory
+net.sf.klexreports.view.save.JROdsSaveContributor$Factory
+net.sf.klexreports.view.save.JRDocxSaveContributor$Factory
+net.sf.klexreports.view.save.JRPptxSaveContributor$Factory
+net.sf.klexreports.view.save.JRSingleSheetXlsxSaveContributor$Factory
+net.sf.klexreports.view.save.JRMultipleSheetsXlsxSaveContributor$Factory
+net.sf.klexreports.view.save.JRHtmlSaveContributor$Factory
+net.sf.klexreports.view.save.JRCsvSaveContributor$Factory
+net.sf.klexreports.view.save.JRXmlSaveContributor$Factory
+net.sf.klexreports.view.save.JREmbeddedImagesXmlSaveContributor$Factory

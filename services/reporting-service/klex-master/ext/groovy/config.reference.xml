@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configReference>
+
+  <category key="net.sf.klexreports.metadata.property.category:compile">
+    <name>Report Compilation</name>
+  </category>
+
+
+  <!-- net.sf.klexreports.compiler.max.groovy.method.size -->
+  
+  <configProperty name="net.sf.klexreports.compiler.max.groovy.method.size">
+    <description>
+Property that determines the maximum size of a generated groovy method.
+    </description>
+  </configProperty>
+  
+  
+</configReference>

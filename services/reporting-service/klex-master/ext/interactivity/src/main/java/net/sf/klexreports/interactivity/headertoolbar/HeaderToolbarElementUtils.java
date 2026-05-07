@@ -1,0 +1,554 @@
+/*
+ * KlexReports - Free Java Reporting Library.
+ * Copyright (C) 2001 - 2023 Cloud Software Group, Inc. All rights reserved.
+ * http://www.klexsoft.com
+ *
+ * Unless you have purchased a commercial license agreement from Klexsoft,
+ * the following license terms apply:
+ *
+ * This program is part of KlexReports.
+ *
+ * KlexReports is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * KlexReports is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with KlexReports. If not, see <http://www.gnu.org/licenses/>.
+ */
+package net.sf.klexreports.interactivity.headertoolbar;
+
+import java.text.DateFormat;
+import java.text.NumberFormat;
+import java.text.ParseException;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
+
+import net.sf.klexreports.components.headertoolbar.HeaderToolbarElement;
+import net.sf.klexreports.components.table.util.TableUtil;
+import net.sf.klexreports.components.util.FilterTypesEnum;
+import net.sf.klexreports.engine.JRField;
+import net.sf.klexreports.engine.JRPropertiesMap;
+import net.sf.klexreports.engine.JRPropertiesUtil;
+import net.sf.klexreports.engine.JRRuntimeException;
+import net.sf.klexreports.engine.JRVariable;
+import net.sf.klexreports.engine.KlexReportsContext;
+import net.sf.klexreports.engine.design.JRDesignDataset;
+import net.sf.klexreports.engine.design.JRDesignTextElement;
+import net.sf.klexreports.engine.design.JRDesignTextField;
+import net.sf.klexreports.engine.type.SortOrderEnum;
+import net.sf.klexreports.engine.util.DefaultFormatFactory;
+import net.sf.klexreports.engine.util.FormatFactory;
+import net.sf.klexreports.engine.util.JRColorUtil;
+import net.sf.klexreports.engine.util.JRDataUtils;
+import net.sf.klexreports.engine.util.JRStringUtil;
+import net.sf.klexreports.engine.util.MessageProvider;
+import net.sf.klexreports.engine.util.MessageUtil;
+import net.sf.klexreports.interactivity.headertoolbar.actions.ConditionalFormattingData;
+import net.sf.klexreports.interactivity.headertoolbar.actions.EditTextElementData;
+import net.sf.klexreports.interactivity.headertoolbar.actions.FormatCondition;
+import net.sf.klexreports.interactivity.sort.actions.FilterData;
+import net.sf.klexreports.util.JsonLoader;
+
+
+
+/**
+ * @author Narcis Marcu (narcism@users.sourceforge.net)
+ */
+public class HeaderToolbarElementUtils 
+{
+	private static final String DEFAULT_PATTERNS_BUNDLE = "net.sf.klexreports.components.messages";
+	private static final String DEFAULT_DATE_PATTERN_KEY = "net.sf.klexreports.components.date.pattern";
+	private static final String DEFAULT_TIME_PATTERN_KEY = "net.sf.klexreports.components.time.pattern";
+	private static final String DEFAULT_NUMBER_PATTERN_KEY = "net.sf.klexreports.components.number.pattern";
+	private static final String DATE_PATTERN_BUNDLE = DEFAULT_DATE_PATTERN_KEY + ".bundle";
+	private static final String DATE_PATTERN_KEY = DEFAULT_DATE_PATTERN_KEY + ".key";
+	private static final String TIME_PATTERN_BUNDLE = DEFAULT_TIME_PATTERN_KEY + ".bundle";
+	private static final String TIME_PATTERN_KEY = DEFAULT_TIME_PATTERN_KEY + ".key";
+	private static final String NUMBER_PATTERN_BUNDLE = DEFAULT_NUMBER_PATTERN_KEY + ".bundle";
+	private static final String NUMBER_PATTERN_KEY = DEFAULT_NUMBER_PATTERN_KEY + ".key";
+	private static final String DEFAULT_CALENDAR_DATE_PATTERN_KEY = "net.sf.klexreports.components.calendar.date.pattern";
+	private static final String DEFAULT_CALENDAR_DATE_TIME_PATTERN_KEY = "net.sf.klexreports.components.calendar.date.time.pattern";
+	private static final String CALENDAR_DATE_PATTERN_BUNDLE = DEFAULT_CALENDAR_DATE_PATTERN_KEY + ".bundle";
+	private static final String CALENDAR_DATE_PATTERN_KEY = DEFAULT_CALENDAR_DATE_PATTERN_KEY + ".key";
+	private static final String CALENDAR_DATE_TIME_PATTERN_KEY = DEFAULT_CALENDAR_DATE_TIME_PATTERN_KEY + ".key";
+	
+	private static Map<String, SortOrderEnum> sortOrderMapping = new HashMap<>();
+	
+	static {
+		sortOrderMapping.put(HeaderToolbarElement.SORT_ORDER_ASC, SortOrderEnum.ASCENDING);
+		sortOrderMapping.put(HeaderToolbarElement.SORT_ORDER_DESC, SortOrderEnum.DESCENDING);
+	}
+	
+	public static String[] extractColumnInfo(String sortColumn) {
+		return sortColumn.split(HeaderToolbarElement.SORT_COLUMN_TOKEN_SEPARATOR);
+	}
+	
+	public static String packSortColumnInfo(String columnName, String columnType, String sortOrder) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(columnName)
+			.append(HeaderToolbarElement.SORT_COLUMN_TOKEN_SEPARATOR)
+			.append(columnType)
+			.append(HeaderToolbarElement.SORT_COLUMN_TOKEN_SEPARATOR)
+			.append(sortOrder);
+		return sb.toString();
+	}
+	
+	public static boolean isValidSortData(String sortData) {
+		return sortData != null 
+				&& sortData.indexOf(HeaderToolbarElement.SORT_COLUMN_TOKEN_SEPARATOR) >= 0 
+				&& sortData.split(HeaderToolbarElement.SORT_COLUMN_TOKEN_SEPARATOR).length > 1;
+	}
+	
+	public static SortOrderEnum getSortOrder(String sortOrder) {
+		return sortOrderMapping.get(sortOrder);
+	}
+
+	/**
+	 * @deprecated Replaced by {@link FilterTypesEnum#getFilterType(Class)}.
+	 */
+	public static FilterTypesEnum getFilterType(Class<?> clazz) {
+		return FilterTypesEnum.getFilterType(clazz);
+	}
+
+	public static void copyOwnTextElementStyle(EditTextElementData textElementData, JRDesignTextElement textElement, Locale locale) {
+		textElementData.setFontName(textElement.getOwnFontName());
+		textElementData.setFontSize(textElement.getOwnFontSize() != null ? NumberFormat.getNumberInstance(locale).format(textElement.getOwnFontSize()) : null);
+		textElementData.setFloatFontSize(textElement.getOwnFontSize() != null ? textElement.getOwnFontSize() : null);
+		textElementData.setFontBold(textElement.isOwnBold());
+		textElementData.setFontItalic(textElement.isOwnItalic());
+		textElementData.setFontUnderline(textElement.isOwnUnderline());
+		textElementData.setFontColor(textElement.getOwnForecolor() != null ? JRColorUtil.getColorHexa(textElement.getOwnForecolor()) : null);
+		textElementData.setFontBackColor(textElement.getOwnBackcolor() != null ? JRColorUtil.getColorHexa(textElement.getOwnBackcolor()) : null);
+		textElementData.setFontHAlign(textElement.getOwnHorizontalTextAlign() != null ? textElement.getOwnHorizontalTextAlign().getName() : null);
+		textElementData.setMode(textElement.getOwnMode() != null ? textElement.getOwnMode().getName() : null);
+		
+		if (textElement instanceof JRDesignTextField && TableUtil.hasSingleChunkExpression((JRDesignTextField) textElement)) {
+			textElementData.setFormatPattern(((JRDesignTextField) textElement).getOwnPattern());
+		}
+	}
+
+	public static void copyTextElementStyle(EditTextElementData textElementData, JRDesignTextElement textElement, Locale locale) {
+		textElementData.setFontName(JRStringUtil.htmlEncode(textElement.getFontName()));
+		textElementData.setFontSize(NumberFormat.getNumberInstance(locale).format(textElement.getFontSize()));
+		textElementData.setFloatFontSize(textElement.getFontSize());
+		textElementData.setFontBold(textElement.isBold());
+		textElementData.setFontItalic(textElement.isItalic());
+		textElementData.setFontUnderline(textElement.isUnderline());
+		textElementData.setFontColor(JRColorUtil.getColorHexa(textElement.getForecolor()));
+		textElementData.setFontBackColor(JRColorUtil.getColorHexa(textElement.getBackcolor()));
+		textElementData.setFontHAlign(textElement.getHorizontalTextAlign().getName());
+		textElementData.setMode(textElement.getMode().getName());
+		
+		if (textElement instanceof JRDesignTextField && TableUtil.hasSingleChunkExpression((JRDesignTextField) textElement)) {
+			textElementData.setFormatPattern(JRStringUtil.htmlEncode(((JRDesignTextField) textElement).getPattern()));
+		}
+	}
+
+
+	/**
+	 * 
+	 */
+	public static void updateFilterData(
+		FilterData filterData,
+		String filterPattern,
+		Locale locale,
+		TimeZone timeZone
+		) 
+	{
+		switch (FilterTypesEnum.getByName(filterData.getFilterType())) 
+		{
+			case DATE :
+			case TIME :
+			{
+				FormatFactory formatFactory = new DefaultFormatFactory();
+				DateFormat newDf = 
+					formatFactory.createDateFormat(
+						filterPattern, 
+						locale, 
+						timeZone 
+						);
+					newDf.setLenient(false);
+				DateFormat oldDf = 
+					formatFactory.createDateFormat(
+						filterData.getFilterPattern(), 
+						filterData.getLocaleCode() == null ? locale : JRDataUtils.getLocale(filterData.getLocaleCode()), 
+								filterData.getTimeZoneId() == null ? timeZone : JRDataUtils.getTimeZone(filterData.getTimeZoneId()) 
+						);
+				oldDf.setLenient(false);
+				
+				try
+				{
+					if (filterData.getFieldValueStart() != null && !filterData.getFieldValueStart().trim().isEmpty())
+					{
+						filterData.setFieldValueStart(
+							newDf.format(oldDf.parse(filterData.getFieldValueStart()))
+							);
+					}
+					if (filterData.getFieldValueEnd() != null && !filterData.getFieldValueEnd().trim().isEmpty())
+					{
+						filterData.setFieldValueEnd(
+							newDf.format(oldDf.parse(filterData.getFieldValueEnd()))
+							);
+					}
+				}
+				catch (ParseException e)
+				{
+					throw new JRRuntimeException(e);
+				}
+				break;
+			}
+			case NUMERIC :
+			{
+				FormatFactory formatFactory = new DefaultFormatFactory();
+				NumberFormat newNf = 
+					formatFactory.createNumberFormat(
+						filterPattern, 
+						locale 
+						);
+				NumberFormat oldNf = 
+					formatFactory.createNumberFormat(
+						filterData.getFilterPattern(), 
+						filterData.getLocaleCode() == null ? locale : JRDataUtils.getLocale(filterData.getLocaleCode()) 
+						);
+				
+				try
+				{
+					if (filterData.getFieldValueStart() != null && !filterData.getFieldValueStart().trim().isEmpty())
+					{
+						filterData.setFieldValueStart(
+							newNf.format(oldNf.parse(filterData.getFieldValueStart()))
+							);
+					}
+					if (filterData.getFieldValueEnd() != null && !filterData.getFieldValueEnd().trim().isEmpty())
+					{
+						filterData.setFieldValueEnd(
+							newNf.format(oldNf.parse(filterData.getFieldValueEnd()))
+							);
+					}
+				}
+				catch (ParseException e)
+				{
+					throw new JRRuntimeException(e);
+				}
+				break;
+			}
+			default :
+		}
+		
+		filterData.setFilterPattern(filterPattern);
+		filterData.setLocaleCode(JRDataUtils.getLocaleCode(locale));
+		filterData.setTimeZoneId(JRDataUtils.getTimeZoneId(timeZone));//FIXME only set this for date/time?
+	}
+	
+	/**
+	 * 
+	 */
+	public static ConditionalFormattingData getConditionalFormattingData(
+		JRDesignTextElement textElement, 
+		KlexReportsContext klexReportsContext
+		) 
+	{
+		ConditionalFormattingData cfd = null;
+		if (textElement != null) 
+		{
+			JRPropertiesMap propertiesMap = textElement.getPropertiesMap();
+			if (
+				propertiesMap.containsProperty(HeaderToolbarElement.COLUMN_CONDITIONAL_FORMATTING_PROPERTY) 
+				&& propertiesMap.getProperty(HeaderToolbarElement.COLUMN_CONDITIONAL_FORMATTING_PROPERTY) != null
+				) 
+			{
+				cfd = 
+					JsonLoader.getInstance(klexReportsContext).loadObject(
+						propertiesMap.getProperty(HeaderToolbarElement.COLUMN_CONDITIONAL_FORMATTING_PROPERTY), 
+						ConditionalFormattingData.class
+						);
+			}
+		}
+		return cfd;
+	}
+
+	/**
+	 * 
+	 */
+	public static void updateConditionalFormattingData(
+		ConditionalFormattingData cfd,
+		String conditionPattern,
+		Locale locale,
+		TimeZone timeZone
+		) 
+	{
+		switch (FilterTypesEnum.getByName(cfd.getConditionType())) 
+		{
+			case TEXT :
+			{
+				// html encode the conditions for text based columns
+				for (FormatCondition fc: cfd.getConditions()) 
+				{
+					fc.setConditionStart(JRStringUtil.htmlEncode(fc.getConditionStart()));
+				}
+				break;
+			}
+			case DATE :
+			case TIME :
+			{
+				FormatFactory formatFactory = new DefaultFormatFactory();
+				DateFormat newDf = 
+					formatFactory.createDateFormat(
+						conditionPattern, 
+						locale, 
+						timeZone 
+						);
+					newDf.setLenient(false);
+				DateFormat oldDf = 
+					formatFactory.createDateFormat(
+						cfd.getConditionPattern(), 
+						cfd.getLocaleCode() == null ? locale : JRDataUtils.getLocale(cfd.getLocaleCode()), 
+						cfd.getTimeZoneId() == null ? timeZone : JRDataUtils.getTimeZone(cfd.getTimeZoneId()) 
+						);
+				oldDf.setLenient(false);
+				
+				try
+				{
+					for (FormatCondition fc: cfd.getConditions()) 
+					{
+						if (fc.getConditionStart() != null && !fc.getConditionStart().trim().isEmpty())
+						{
+							fc.setConditionStart(
+								newDf.format(oldDf.parse(fc.getConditionStart()))
+								);
+						}
+						if (fc.getConditionEnd() != null && !fc.getConditionEnd().trim().isEmpty())
+						{
+							fc.setConditionEnd(
+								newDf.format(oldDf.parse(fc.getConditionEnd()))
+								);
+						}
+					}
+				}
+				catch (ParseException e)
+				{
+					throw new JRRuntimeException(e);
+				}
+				break;
+			}
+			case NUMERIC :
+			{
+				FormatFactory formatFactory = new DefaultFormatFactory();
+				NumberFormat newNf = 
+					formatFactory.createNumberFormat(
+						conditionPattern, 
+						locale 
+						);
+				NumberFormat oldNf = 
+					formatFactory.createNumberFormat(
+						cfd.getConditionPattern(), 
+						cfd.getLocaleCode() == null ? locale : JRDataUtils.getLocale(cfd.getLocaleCode()) 
+						);
+				
+				try
+				{
+					for (FormatCondition fc: cfd.getConditions()) 
+					{
+						if (fc.getConditionStart() != null && !fc.getConditionStart().trim().isEmpty())
+						{
+							fc.setConditionStart(
+								newNf.format(oldNf.parse(fc.getConditionStart()))
+								);
+						}
+						if (fc.getConditionEnd() != null && !fc.getConditionEnd().trim().isEmpty())
+						{
+							fc.setConditionEnd(
+								newNf.format(oldNf.parse(fc.getConditionEnd()))
+								);
+						}
+					}
+				}
+				catch (ParseException e)
+				{
+					throw new JRRuntimeException(e);
+				}
+				break;
+			}
+			default :
+		}
+		
+		cfd.setConditionPattern(conditionPattern);
+		cfd.setLocaleCode(JRDataUtils.getLocaleCode(locale));
+		cfd.setTimeZoneId(JRDataUtils.getTimeZoneId(timeZone));
+	}
+	
+	/**
+	 * 
+	 */
+	public static JRField getField(String name, JRDesignDataset dataSet) 
+	{
+		JRField found = null;
+		for (JRField field : dataSet.getFields())
+		{
+			if (name.equals(field.getName()))
+			{
+				found = field;
+				break;
+			}
+		}
+		return found;
+	}
+	
+	/**
+	 * 
+	 */
+	public static JRVariable getVariable(String name, JRDesignDataset dataSet) 
+	{
+		JRVariable found = null;
+		for (JRVariable var : dataSet.getVariables())
+		{
+			if (name.equals(var.getName()))
+			{
+				found = var;
+				break;
+			}
+		}
+		return found;
+	}
+
+
+	public static String getFilterPattern(
+		KlexReportsContext klexReportsContext, 
+		Locale locale, 
+		FilterTypesEnum filterType
+		) 
+	{
+		String pattern = null;
+		switch (filterType)
+		{
+			case DATE :
+			{
+				pattern = HeaderToolbarElementUtils.getDatePattern(klexReportsContext, locale);
+				break;
+			}
+			case TIME :
+			{
+				pattern = HeaderToolbarElementUtils.getTimePattern(klexReportsContext, locale);
+				break;
+			}
+			case NUMERIC :
+			{
+				pattern = HeaderToolbarElementUtils.getNumberPattern(klexReportsContext, locale);
+				break;
+			}
+			case TEXT :
+			default : 
+			{
+			}
+		}
+		return pattern;
+	}
+
+	/**
+	 * 
+	 */
+	public static String getNumberPattern(KlexReportsContext jrContext, Locale locale)
+	{
+		String numberPatternBundleName = JRPropertiesUtil.getInstance(jrContext).getProperty(NUMBER_PATTERN_BUNDLE);
+		if (numberPatternBundleName == null)
+		{
+			numberPatternBundleName = DEFAULT_PATTERNS_BUNDLE;
+		}
+		String numberPatternKey = JRPropertiesUtil.getInstance(jrContext).getProperty(NUMBER_PATTERN_KEY);
+		if (numberPatternKey == null)
+		{
+			numberPatternKey = DEFAULT_NUMBER_PATTERN_KEY;
+		}
+		return getBundleMessage(numberPatternKey, jrContext, numberPatternBundleName, locale);
+	}
+
+	/**
+	 * 
+	 */
+	public static String getDatePattern(KlexReportsContext jrContext, Locale locale)
+	{
+		String datePatternBundleName = JRPropertiesUtil.getInstance(jrContext).getProperty(DATE_PATTERN_BUNDLE);
+		if (datePatternBundleName == null)
+		{
+			datePatternBundleName = DEFAULT_PATTERNS_BUNDLE;
+		}
+		String datePatternKey = JRPropertiesUtil.getInstance(jrContext).getProperty(DATE_PATTERN_KEY);
+		if (datePatternKey == null)
+		{
+			datePatternKey = DEFAULT_DATE_PATTERN_KEY;
+		}
+		return getBundleMessage(datePatternKey, jrContext, datePatternBundleName, locale);
+	}
+
+	/**
+	 * 
+	 */
+	public static String getTimePattern(KlexReportsContext jrContext, Locale locale)
+	{
+		String timePatternBundleName = JRPropertiesUtil.getInstance(jrContext).getProperty(TIME_PATTERN_BUNDLE);
+		if (timePatternBundleName == null)
+		{
+			timePatternBundleName = DEFAULT_PATTERNS_BUNDLE;
+		}
+
+		String timePatternKey = JRPropertiesUtil.getInstance(jrContext).getProperty(TIME_PATTERN_KEY);
+		if (timePatternKey == null)
+		{
+			timePatternKey = DEFAULT_TIME_PATTERN_KEY;
+		}
+		return getBundleMessage(timePatternKey, jrContext, timePatternBundleName, locale);
+	}
+
+	/**
+	 * 
+	 */
+	public static String getCalendarDatePattern(KlexReportsContext jrContext, Locale locale)
+	{
+		String calendarDatePatternBundleName = JRPropertiesUtil.getInstance(jrContext).getProperty(CALENDAR_DATE_PATTERN_BUNDLE);
+		if (calendarDatePatternBundleName == null)
+		{
+			calendarDatePatternBundleName = DEFAULT_PATTERNS_BUNDLE;
+		}
+		String calendarDatePatternKey = JRPropertiesUtil.getInstance(jrContext).getProperty(CALENDAR_DATE_PATTERN_KEY);
+		if (calendarDatePatternKey == null)
+		{
+			calendarDatePatternKey = DEFAULT_CALENDAR_DATE_PATTERN_KEY;
+		}
+		return getBundleMessage(calendarDatePatternKey, jrContext, calendarDatePatternBundleName, locale);
+	}
+
+	/**
+	 * 
+	 */
+	public static String getCalendarTimePattern(KlexReportsContext jrContext, Locale locale)
+	{
+		String timePatternBundleName = JRPropertiesUtil.getInstance(jrContext).getProperty(TIME_PATTERN_BUNDLE);
+		if (timePatternBundleName == null)
+		{
+			timePatternBundleName = DEFAULT_PATTERNS_BUNDLE;
+		}
+		String calendarTimePatternKey = JRPropertiesUtil.getInstance(jrContext).getProperty(CALENDAR_DATE_TIME_PATTERN_KEY);
+		if (calendarTimePatternKey == null)
+		{
+			calendarTimePatternKey = DEFAULT_CALENDAR_DATE_TIME_PATTERN_KEY;
+		}
+		return getBundleMessage(calendarTimePatternKey, jrContext, timePatternBundleName, locale);
+	}
+	
+	/**
+	 * 
+	 */
+	public static String getBundleMessage(String key, KlexReportsContext klexReportsContext, String bundleName, Locale locale) 
+	{
+		MessageProvider messageProvider = MessageUtil.getInstance(klexReportsContext).getMessageProvider(bundleName);
+		return messageProvider.getMessage(key, null, locale); 
+	}
+}

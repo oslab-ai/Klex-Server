@@ -1,0 +1,54 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>net.sf.klexreports</groupId>
+		<artifactId>klexreports-parent</artifactId>
+		<version>${revision}</version>
+		<relativePath>../../pom-parent.xml</relativePath>
+	</parent>
+	<artifactId>klexreports-fonts</artifactId>
+	<packaging>jar</packaging>
+	<name>KlexReports Font Extension</name>
+	<description>KlexReports Font Extension</description>
+	<url>http://klexreports.sourceforge.net</url>
+	<scm>
+		<connection>${scmConnection}</connection>
+		<tag>${revision}</tag>
+		<url>${scmUrl}</url>
+	</scm>
+	<properties>
+		<maven.install.skip>false</maven.install.skip>
+		<maven.source.skip>true</maven.source.skip>
+		<maven.javadoc.skip>true</maven.javadoc.skip>
+		<maven.deploy.skip>false</maven.deploy.skip>
+		<dependency-check.skip>true</dependency-check.skip>
+	</properties>
+	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<resource>
+				<directory>src/main/resources/META-INF</directory>
+				<includes>
+					<include>**/*.MF</include>
+				</includes>
+				<targetPath>META-INF</targetPath>
+				<filtering>true</filtering>
+			</resource>
+		</resources>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>${maven-jar-plugin.version}</version>
+				<configuration>
+					<archive>
+						<manifestFile>${project.build.directory}/classes/META-INF/MANIFEST.MF</manifestFile>
+					</archive>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>
