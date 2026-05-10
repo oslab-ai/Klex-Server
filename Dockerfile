@@ -22,7 +22,7 @@ COPY services/reporting-service/pom.xml .
 RUN mvn dependency:go-offline -B
 
 # Copy Klex reports library (build dependency)
-COPY services/reporting-service/klex reports-master ./klex reports-master
+# COPY services/reporting-service/klex reports-master ./klex reports-master
 
 # Copy Java source and build
 COPY services/reporting-service/src ./src
