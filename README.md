@@ -54,7 +54,7 @@ Full documentation for Klex is maintained in a separate repository:
 ### Prerequisites
 - **Python 3.11+** with [uv](https://docs.astral.sh/uv/) package manager
 - **Node.js 18+** with npm
-- **Java 17+** with Maven (`mvn`)
+- **Java 8** (OpenJDK 1.8.0_482) with **Maven 3.8.7** (`mvn`)
 - **PostgreSQL 14+**
 
 ### 1. Database Setup
