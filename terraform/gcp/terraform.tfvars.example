@@ -1,0 +1,7 @@
+project_id       = "your-gcp-project-id"
+region           = "us-central1"
+db_password      = "your-db-password"
+django_secret_key = "your-secret-key"
+
+backend_image  = "us-central1-docker.pkg.dev/project/klex/backend:latest"
+frontend_image = "us-central1-docker.pkg.dev/project/klex/frontend:latest"
