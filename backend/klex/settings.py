@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'github_integration',
     'dataadapter',
     'audit',
+    'chatbot',
 ]
 
 MIDDLEWARE = [
