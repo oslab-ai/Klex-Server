@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { reposApi } from '../api';
+import ChangeRepoModal from './ChangeRepoModal';
+import type { Repo } from '../types';
 
 const SIDEBAR_KEY = 'klex_sidebar_collapsed';
 
@@ -22,7 +24,18 @@ export default function Sidebar() {
     });
     const [syncing, setSyncing] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
+    const [changeRepoModalOpen, setChangeRepoModalOpen] = useState(false);
+    const [currentRepo, setCurrentRepo] = useState<Repo | null>(null);
     const userMenuRef = useRef<HTMLDivElement>(null);
+
+    // Load current repo for the Change Repo modal
+    useEffect(() => {
+        if (user?.is_super_admin) {
+            reposApi.list().then(repos => {
+                if (repos.length > 0) setCurrentRepo(repos[0]);
+            }).catch(() => {});
+        }
+    }, [user]);
 
     useEffect(() => {
         localStorage.setItem(SIDEBAR_KEY, String(collapsed));
@@ -146,6 +159,7 @@ export default function Sidebar() {
     );
 
     return (
+        <>
         <aside
             className="sidebar"
             style={{ width: collapsed ? 72 : 260 }}
@@ -175,6 +189,20 @@ export default function Sidebar() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                         {!collapsed && <span>{syncing ? 'Syncing...' : 'Sync Repos'}</span>}
+                    </button>
+                )}
+
+                {/* Change Repo button — super admin only */}
+                {user?.is_super_admin && (
+                    <button
+                        onClick={() => setChangeRepoModalOpen(true)}
+                        className="sidebar-item w-full"
+                        title={collapsed ? 'Change Repo' : undefined}
+                    >
+                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        {!collapsed && <span>Change Repo</span>}
                     </button>
                 )}
 
@@ -274,5 +302,13 @@ export default function Sidebar() {
                 </div>
             </div>
         </aside>
+
+            {/* Change Repo Modal */}
+            <ChangeRepoModal
+                isOpen={changeRepoModalOpen}
+                onClose={() => setChangeRepoModalOpen(false)}
+                currentRepo={currentRepo}
+            />
+        </>
     );
 }
