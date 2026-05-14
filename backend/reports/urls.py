@@ -34,6 +34,8 @@ from .views import (
     # Engine migration
     SchedulerEngineSwitchView,
     AirflowUIRedirectView,
+    # Metadata refresh
+    ReportMetadataBulkRefreshView,
 )
 
 urlpatterns = [
@@ -69,5 +71,7 @@ urlpatterns = [
     # Engine migration
     path('scheduler-engine/switch/', SchedulerEngineSwitchView.as_view(), name='scheduler-engine-switch'),
     path('airflow-ui/', AirflowUIRedirectView.as_view(), name='airflow-ui'),
+    # Metadata cache management
+    path('metadata/refresh/', ReportMetadataBulkRefreshView.as_view(), name='report-metadata-refresh'),
 ]
 

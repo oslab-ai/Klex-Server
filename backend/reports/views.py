@@ -358,6 +358,88 @@ def ensure_local_jrxml(report, user):
     return str(main_jrxml_path)
 
 
+def _populate_report_metadata_cache(report, user):
+    """
+    Fetch metadata from the Java MetadataService and store a compact
+    summary in report.metadata_cache.  Returns True on success.
+
+    This is intentionally fail-safe: if the Java service is down or the
+    JRXML cannot be parsed, we log a warning and return False — the
+    chatbot will simply not have metadata for that report.
+    """
+    try:
+        local_jrxml_path = ensure_local_jrxml(report, user)
+
+        metadata_url = f"{settings.COMPILER_SERVICE_URL}/api/metadata/extract"
+        payload = {'sourceType': 'LOCAL', 'path': local_jrxml_path}
+
+        response = http_requests.post(metadata_url, json=payload, timeout=60)
+        if response.status_code != 200:
+            logger.warning(
+                f"Metadata extraction returned {response.status_code} "
+                f"for report {report.id}: {response.text[:200]}"
+            )
+            return False
+
+        data = response.json()
+
+        # Build compact summary
+        param_names = [
+            p['name'] for p in (data.get('parameters') or [])
+        ]
+        field_names = [
+            f['name'] for f in (data.get('fields') or [])
+        ]
+        chart_types = data.get('charts') or []
+        sub_reports = data.get('subReports') or []
+
+        # Build a natural-language summary for the LLM
+        parts = []
+        display = report.display_name or report.report_name
+        parts.append(f"{display} report")
+        if data.get('queryLanguage'):
+            parts.append(f"uses {data['queryLanguage'].upper()} queries")
+        if data.get('dataAdapterName'):
+            parts.append(f"data source: {data['dataAdapterName']}")
+        if chart_types:
+            parts.append(f"contains {', '.join(chart_types)}")
+        if param_names:
+            parts.append(
+                f"filterable by {', '.join(param_names[:5])}"
+                + (" and more" if len(param_names) > 5 else "")
+            )
+        if sub_reports:
+            parts.append(f"has {len(sub_reports)} sub-report(s)")
+
+        summary = ". ".join(parts) + "."
+
+        report.metadata_cache = {
+            'report_name': data.get('reportName', report.report_name),
+            'query_language': data.get('queryLanguage'),
+            'data_adapter': data.get('dataAdapterName'),
+            'parameter_names': param_names,
+            'field_names': field_names[:20],  # cap for size
+            'chart_types': chart_types,
+            'has_subreports': bool(sub_reports),
+            'band_count': len(data.get('bands') or []),
+            'summary': summary,
+        }
+        report.metadata_cached_at = timezone.now()
+        report.save(update_fields=['metadata_cache', 'metadata_cached_at'])
+        logger.info(f"Metadata cache populated for report {report.id}")
+        return True
+
+    except http_requests.exceptions.ConnectionError:
+        logger.warning(
+            f"Java service unavailable — skipped metadata cache for report {report.id}"
+        )
+        return False
+    except Exception as e:
+        logger.warning(
+            f"Metadata cache population failed for report {report.id}: {e}"
+        )
+        return False
+
 class ReportCompileView(APIView):
     """
     Compile and run a report by proxying to the Java compiler service.
@@ -476,6 +558,10 @@ class ReportCompileView(APIView):
             execution.finished_at = timezone.now()
             execution.output_location = f"/media/reports/{report.id}/{output_filename}"
             execution.save()
+
+            # Populate metadata cache as a side-effect on first successful compile
+            if not report.metadata_cache:
+                _populate_report_metadata_cache(report, user)
             
             return Response({
                 'execution_id': execution.id,
@@ -694,7 +780,14 @@ class ReportMetadataView(APIView):
             if response.status_code != 200:
                 raise Exception(f"Metadata service returned {response.status_code}: {response.text}")
 
-            return Response(response.json())
+            # Cache a compact summary as a side-effect
+            metadata_json = response.json()
+            try:
+                self._cache_metadata(report, metadata_json)
+            except Exception as cache_err:
+                logger.warning(f"Metadata cache side-effect failed: {cache_err}")
+
+            return Response(metadata_json)
 
         except http_requests.exceptions.ConnectionError:
             return Response(
@@ -707,6 +800,46 @@ class ReportMetadataView(APIView):
                 {'error': f'Metadata extraction failed: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @staticmethod
+    def _cache_metadata(report, data):
+        """Distil full metadata response into a compact cache on the Report."""
+        param_names = [p['name'] for p in (data.get('parameters') or [])]
+        field_names = [f['name'] for f in (data.get('fields') or [])]
+        chart_types = data.get('charts') or []
+        sub_reports = data.get('subReports') or []
+
+        parts = []
+        display = report.display_name or report.report_name
+        parts.append(f"{display} report")
+        if data.get('queryLanguage'):
+            parts.append(f"uses {data['queryLanguage'].upper()} queries")
+        if data.get('dataAdapterName'):
+            parts.append(f"data source: {data['dataAdapterName']}")
+        if chart_types:
+            parts.append(f"contains {', '.join(chart_types)}")
+        if param_names:
+            parts.append(
+                f"filterable by {', '.join(param_names[:5])}"
+                + (" and more" if len(param_names) > 5 else "")
+            )
+        if sub_reports:
+            parts.append(f"has {len(sub_reports)} sub-report(s)")
+        summary = ". ".join(parts) + "."
+
+        report.metadata_cache = {
+            'report_name': data.get('reportName', report.report_name),
+            'query_language': data.get('queryLanguage'),
+            'data_adapter': data.get('dataAdapterName'),
+            'parameter_names': param_names,
+            'field_names': field_names[:20],
+            'chart_types': chart_types,
+            'has_subreports': bool(sub_reports),
+            'band_count': len(data.get('bands') or []),
+            'summary': summary,
+        }
+        report.metadata_cached_at = timezone.now()
+        report.save(update_fields=['metadata_cache', 'metadata_cached_at'])
 
 
 class ReportParametersView(APIView):
@@ -2048,3 +2181,42 @@ class AirflowUIRedirectView(APIView):
             'dags_url': f'{ui_url}/dags',
         })
 
+
+class ReportMetadataBulkRefreshView(APIView):
+    """
+    POST /api/reports/metadata/refresh/
+    Admin-only endpoint to bulk-refresh the metadata_cache for all reports
+    (or a subset specified via report_ids in the request body).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not request.user.is_admin:
+            return Response(
+                {'error': 'Admin access required'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Optional: subset of report IDs
+        report_ids = request.data.get('report_ids')
+        qs = Report.objects.all()
+        if report_ids:
+            qs = qs.filter(id__in=report_ids)
+
+        total = qs.count()
+        refreshed = 0
+        failed = 0
+
+        for report in qs.select_related('repo'):
+            ok = _populate_report_metadata_cache(report, request.user)
+            if ok:
+                refreshed += 1
+            else:
+                failed += 1
+
+        return Response({
+            'total': total,
+            'refreshed': refreshed,
+            'failed': failed,
+            'message': f'Metadata refreshed for {refreshed}/{total} reports.',
+        })

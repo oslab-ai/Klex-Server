@@ -86,8 +86,8 @@ export const ChatbotWidget: React.FC = () => {
                                 <Bot className="w-12 h-12 opacity-50" />
                                 <p className="text-sm text-center">
                                     Hi! I'm your Klex assistant. <br/>
-                                    Ask me to take you anywhere! <br/>
-                                    e.g., "Open reports" or "Go to users"
+                                    Ask me to open any report or page! <br/>
+                                    e.g., "Open Monthly Sales report"
                                 </p>
                             </div>
                         ) : (

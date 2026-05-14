@@ -24,6 +24,12 @@ class Report(models.Model):
     latest_commit = models.CharField(max_length=40, null=True, blank=True)
     display_name = models.CharField(max_length=255, null=True, blank=True)
     is_public = models.BooleanField(default=True)  # Visible to all authenticated users
+    metadata_cache = models.JSONField(
+        default=dict, blank=True,
+        help_text="Compact metadata summary for chatbot/search. "
+                  "Populated from Java MetadataService.",
+    )
+    metadata_cached_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

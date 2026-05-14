@@ -168,7 +168,26 @@ class RepoSyncView(APIView):
             'created': created_count,
             'updated': updated_count,
         })
-        
+
+        # Trigger metadata cache population in a background thread for
+        # reports that don't have cached metadata yet (non-blocking).
+        import threading
+        from reports.views import _populate_report_metadata_cache
+
+        uncached = Report.objects.filter(
+            repo=repo, metadata_cache={},
+        ).select_related('repo')
+        if uncached.exists():
+            def _bg_populate(reports_qs, user):
+                for r in reports_qs:
+                    _populate_report_metadata_cache(r, user)
+
+            threading.Thread(
+                target=_bg_populate,
+                args=(list(uncached), request.user),
+                daemon=True,
+            ).start()
+
         return Response({
             'message': 'Sync completed',
             'created': created_count,
