@@ -24,6 +24,7 @@ export default function Users() {
     const [orgId, setOrgId] = useState<number | null>(null);
     const [formError, setFormError] = useState('');
     const [saving, setSaving] = useState(false);
+    const [draftLoaded, setDraftLoaded] = useState(false);
 
     // Permissions modal state
     const [showPermissionsModal, setShowPermissionsModal] = useState(false);
@@ -221,6 +222,42 @@ export default function Users() {
             setSavingPermissions(false);
         }
     };
+
+	const STORAGE_KEY = 'users-draft';
+
+	useEffect(() => {
+		const saved = localStorage.getItem(STORAGE_KEY);
+
+		if (saved) {
+			try {
+				const draft = JSON.parse(saved);
+
+				setUsername(draft.username || '');
+				setEmail(draft.email || '');
+				setPassword(draft.password || '');
+				setDisplayName(draft.displayName || '');
+
+			} catch (err) {
+				console.error('Failed to restore draft:', err);
+			}
+		}
+
+		setDraftLoaded(true);
+	}, []);
+
+	useEffect(() => {
+		if (!draftLoaded) return;
+
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify({
+				username,
+				email,
+				password,
+				displayName
+			})
+		);
+	}, [username, email, password, displayName]);
 
 	const closeModal = () => {
 		setShowModal(false);

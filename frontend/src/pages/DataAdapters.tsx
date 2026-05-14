@@ -24,6 +24,7 @@ export default function DataAdapters() {
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
     const [formError, setFormError] = useState('');
     const [saving, setSaving] = useState(false);
+    const [draftLoaded, setDraftLoaded] = useState(false);
     const [testing, setTesting] = useState(false);
     const [showTemplates, setShowTemplates] = useState(false);
     const templatesDropdownRef = useRef<HTMLDivElement>(null);
@@ -148,12 +149,49 @@ export default function DataAdapters() {
         }
     };
 
+	const STORAGE_KEY = 'data-adapter-draft';
+
+	useEffect(() => {
+		const saved = localStorage.getItem(STORAGE_KEY);
+
+		if (saved) {
+			try {
+				const draft = JSON.parse(saved);
+
+				setName(draft.name || '');
+				setAdapterType(draft.adapterType || 'jdbc');
+
+				if (draft.connectionDetails) {
+					setConnectionDetails(draft.connectionDetails);
+				}
+			} catch (err) {
+				console.error('Failed to restore draft:', err);
+			}
+		}
+
+		setDraftLoaded(true);
+	}, []);
+
+	useEffect(() => {
+		if (!draftLoaded) return;
+
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify({
+				name,
+				adapterType,
+				connectionDetails,
+			})
+		);
+	}, [name, adapterType, connectionDetails]);
 
 	const closeModal = () => {
 		setShowModal(false);
 	}
 
     const resetForm = () => {
+		localStorage.removeItem(STORAGE_KEY)
+
         setShowModal(false);
         setName('');
         setAdapterType('jdbc');
