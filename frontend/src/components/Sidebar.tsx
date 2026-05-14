@@ -152,7 +152,7 @@ export default function Sidebar() {
         >
             {/* Logo */}
             <div className="px-4 py-5 flex items-center justify-center border-b border-gray-100 dark:border-gray-800">
-                <div className={`${collapsed ? 'w-18 h-18' : 'w-full h-14'} flex items-center justify-center flex-shrink-0`}>
+                <div className={`${collapsed ? 'w-14 h-14' : 'w-full h-15'} flex items-center justify-center flex-shrink-0`}>
                     <img src={theme === 'light' ? '/logo-nobg.png' : '/logo-nobg_light.png'} alt="Klex" className="w-full h-full object-contain" />
                 </div>
             </div>
