@@ -322,7 +322,6 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
     };
 
     const handleClose = () => {
-        resetForm();
         onClose();
     };
 

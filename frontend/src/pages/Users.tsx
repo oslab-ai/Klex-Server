@@ -222,6 +222,10 @@ export default function Users() {
         }
     };
 
+	const closeModal = () => {
+		setShowModal(false);
+	}
+
     const resetForm = () => {
         setShowModal(false);
         setEditingUser(null);
@@ -425,7 +429,7 @@ export default function Users() {
             </div>
 
             {/* Create / Edit User Modal */}
-            <Modal isOpen={showModal} onClose={resetForm} maxWidth="max-w-md">
+            <Modal isOpen={showModal} onClose={closeModal} maxWidth="max-w-md">
                 <h2 className="text-xl font-semibold mb-4">
                     {editingUser ? 'Edit User' : 'Create New User'}
                 </h2>

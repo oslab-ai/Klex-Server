@@ -149,6 +149,9 @@ export default function DataAdapters() {
     };
 
 
+	const closeModal = () => {
+		setShowModal(false);
+	}
 
     const resetForm = () => {
         setShowModal(false);
@@ -347,7 +350,7 @@ export default function DataAdapters() {
             )}
 
             {/* Create Adapter Modal */}
-            <Modal isOpen={showModal} onClose={resetForm}>
+            <Modal isOpen={showModal} onClose={closeModal}>
                 <h2 className="text-xl font-semibold mb-4">Create Data Adapter</h2>
 
                 <form onSubmit={handleCreate} className="space-y-4">
