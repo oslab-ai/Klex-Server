@@ -14,6 +14,8 @@ interface ScheduleModalProps {
     reportId?: number;
 }
 
+const STORAGE_KEY = 'schedule-modal-draft';
+
 const INTERVAL_UNITS = [
     { value: 'MINUTE', label: 'Minutes' },
     { value: 'HOUR', label: 'Hours' },
@@ -59,6 +61,8 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
     const [selectedFormats, setSelectedFormats] = useState<string[]>(['PDF']);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+	const [draftLoaded, setDraftLoaded] = useState(false);
+	
 
     // Report parameter state
     const [paramMetadata, setParamMetadata] = useState<ParameterMetadata[]>([]);
@@ -292,6 +296,119 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
         }
     };
 
+	useEffect(() => {
+		const saved = localStorage.getItem(STORAGE_KEY);
+
+		if (!saved) {
+			setDraftLoaded(true);
+			return;
+		}
+
+		try {
+			const draft = JSON.parse(saved);
+
+			setSelectedReportId(draft.selectedReportId ?? '');
+			setScheduleName(draft.scheduleName ?? '');
+			setTriggerType(draft.triggerType ?? 'simple');
+			setTimezone(draft.timezone ?? 'UTC');
+			setSelectedFormats(draft.selectedFormats ?? ['PDF']);
+			setStartDate(draft.startDate ?? '');
+			setEndDate(draft.endDate ?? '');
+
+			setParamValues(draft.paramValues ?? {});
+
+			setInterval(draft.interval ?? 5);
+			setIntervalUnit(draft.intervalUnit ?? 'MINUTE');
+			setOccurrenceCount(draft.occurrenceCount ?? 3);
+			setRepeatForever(draft.repeatForever ?? false);
+
+			setCalendarPreset(draft.calendarPreset ?? 'daily');
+			setCronExpression(draft.cronExpression ?? '');
+			setDailyTime(draft.dailyTime ?? '09:00');
+			setWeeklyDay(draft.weeklyDay ?? 2);
+			setMonthlyDay(draft.monthlyDay ?? 1);
+			setSelectedDays(draft.selectedDays ?? [2, 3, 4, 5, 6]);
+
+			setEmailTo(draft.emailTo ?? '');
+			setEmailSubject(draft.emailSubject ?? '');
+			setEmailMessage(draft.emailMessage ?? '');
+
+			setSendToOrganizations(draft.sendToOrganizations ?? []);
+		} catch (err) {
+			console.error('Failed to restore schedule draft:', err);
+		} finally {
+			setDraftLoaded(true);
+		}
+	}, []);
+
+	useEffect(() => {
+		if (!draftLoaded) return;
+
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify({
+				selectedReportId,
+				scheduleName,
+				triggerType,
+				timezone,
+				selectedFormats,
+				startDate,
+				endDate,
+
+				paramValues,
+
+				interval,
+				intervalUnit,
+				occurrenceCount,
+				repeatForever,
+
+				calendarPreset,
+				cronExpression,
+				dailyTime,
+				weeklyDay,
+				monthlyDay,
+				selectedDays,
+
+				emailTo,
+				emailSubject,
+				emailMessage,
+
+				sendToOrganizations,
+			})
+		);
+	}, [
+		draftLoaded,
+
+		selectedReportId,
+		scheduleName,
+		triggerType,
+		timezone,
+		selectedFormats,
+		startDate,
+		endDate,
+
+		paramValues,
+
+		interval,
+		intervalUnit,
+		occurrenceCount,
+		repeatForever,
+
+		calendarPreset,
+		cronExpression,
+		dailyTime,
+		weeklyDay,
+		monthlyDay,
+		selectedDays,
+
+		emailTo,
+		emailSubject,
+		emailMessage,
+
+		sendToOrganizations,
+	]);
+
+
     const resetForm = () => {
         setSelectedReportId('');
         setScheduleName('');
@@ -321,13 +438,14 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
         setSuccess(null);
     };
 
+
     const handleClose = () => {
         resetForm();
         onClose();
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={handleClose} maxWidth="max-w-4xl">
+        <Modal isOpen={isOpen} onClose={onClose} maxWidth="max-w-4xl">
             {/* Header */}
             <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/30">
