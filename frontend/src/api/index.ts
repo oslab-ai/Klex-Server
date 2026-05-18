@@ -212,6 +212,23 @@ export const reposApi = {
     delete: async (id: number): Promise<void> => {
         await api.delete(`/api/repos/${id}/`);
     },
+
+    change: async (id: number, repoData: {
+        owner: string;
+        name: string;
+        branch: string;
+        path_prefix: string;
+        git_remote_url: string;
+    }): Promise<{
+        message: string;
+        old_repo: string;
+        new_repo: Repo;
+        sync_results: { created: number; updated: number; total_reports: number; error?: string };
+        deleted_data: { reports: number; permissions: number; executions: number; scheduled_jobs: number; report_groups: number };
+    }> => {
+        const { data } = await api.post(`/api/repos/${id}/change/`, repoData);
+        return data;
+    },
 };
 
 // Reports API
