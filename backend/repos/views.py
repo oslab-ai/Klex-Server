@@ -194,3 +194,162 @@ class RepoSyncView(APIView):
             'updated': updated_count,
             'total_reports': Report.objects.filter(repo=repo).count(),
         })
+
+
+class RepoChangeView(APIView):
+    """
+    Change the connected repository.
+    Deletes the old repo (cascading all reports/permissions/executions),
+    creates a new repo, and syncs it.
+
+    Restricted to super admins only.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not request.user.is_super_admin:
+            return Response(
+                {'error': 'Super admin access required to change repository'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Validate the old repo exists
+        try:
+            old_repo = Repo.objects.get(pk=pk)
+        except Repo.DoesNotExist:
+            return Response(
+                {'error': 'Repo not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Validate new repo data
+        new_owner = request.data.get('owner')
+        new_name = request.data.get('name')
+        new_branch = request.data.get('branch', 'main')
+        new_path_prefix = request.data.get('path_prefix', '')
+        new_git_remote_url = request.data.get('git_remote_url')
+
+        if not new_owner or not new_name:
+            return Response(
+                {'error': 'owner and name are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Prevent changing to the same repo
+        if old_repo.owner == new_owner and old_repo.name == new_name:
+            return Response(
+                {'error': 'New repository is the same as the current one'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get GitHub token for syncing
+        try:
+            github_token = GitHubToken.objects.get(user=request.user)
+        except GitHubToken.DoesNotExist:
+            return Response(
+                {'error': 'GitHub not connected. Please connect GitHub first.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Count data that will be deleted (for the response summary)
+        from reports.models import Report, ReportPermission, Execution, ScheduledJob, ReportGroup
+        old_reports = Report.objects.filter(repo=old_repo)
+        # Groups that contain reports from this repo
+        old_report_ids = list(old_reports.values_list('id', flat=True))
+        groups_with_old_reports = ReportGroup.objects.filter(
+            memberships__report_id__in=old_report_ids
+        ).distinct()
+        deleted_data = {
+            'reports': old_reports.count(),
+            'permissions': ReportPermission.objects.filter(report__repo=old_repo).count(),
+            'executions': Execution.objects.filter(report__repo=old_repo).count(),
+            'scheduled_jobs': ScheduledJob.objects.filter(report__repo=old_repo).count(),
+            'report_groups': groups_with_old_reports.count(),
+        }
+
+        old_repo_name = old_repo.full_name
+
+        # Delete old repo — CASCADE will clean up reports, permissions, group memberships, etc.
+        old_repo.delete()
+
+        # Delete report groups that are now empty (had reports only from the old repo)
+        ReportGroup.objects.filter(memberships__isnull=True).delete()
+
+        # Create new repo
+        new_repo = Repo.objects.create(
+            owner=new_owner,
+            name=new_name,
+            branch=new_branch,
+            path_prefix=new_path_prefix,
+            git_remote_url=new_git_remote_url,
+            created_by=request.user,
+        )
+
+        # Sync the new repo — fetch folders from GitHub
+        headers = {
+            'Authorization': f'token {github_token.access_token}',
+            'Accept': 'application/vnd.github.v3+json',
+        }
+
+        base_url = f'https://api.github.com/repos/{new_repo.owner}/{new_repo.name}/contents'
+        if new_repo.path_prefix:
+            url = f'{base_url}/{new_repo.path_prefix}'
+        else:
+            url = base_url
+        params = {'ref': new_repo.branch}
+
+        sync_results = {'created': 0, 'updated': 0, 'total_reports': 0}
+
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+            response.raise_for_status()
+            contents = response.json()
+
+            folders = [
+                item for item in contents
+                if item.get('type') == 'dir' and not item.get('name', '').startswith('.')
+            ]
+
+            for folder in folders:
+                folder_name = folder['name']
+                folder_path = f"{new_repo.path_prefix}/{folder_name}"
+
+                report, created = Report.objects.update_or_create(
+                    repo=new_repo,
+                    path=folder_path,
+                    defaults={
+                        'report_name': folder_name,
+                        'display_name': folder_name.replace('_', ' ').replace('-', ' ').title(),
+                        'latest_commit': folder.get('sha'),
+                    }
+                )
+
+                if created:
+                    sync_results['created'] += 1
+                else:
+                    sync_results['updated'] += 1
+
+            new_repo.last_synced_at = timezone.now()
+            new_repo.save()
+
+            sync_results['total_reports'] = Report.objects.filter(repo=new_repo).count()
+
+        except requests.RequestException as e:
+            # Repo was created but sync failed — return partial success
+            sync_results['error'] = f'Sync failed: {str(e)}'
+
+        log_action(request.user, 'repo_changed', {
+            'old_repo': old_repo_name,
+            'new_repo': new_repo.full_name,
+            'deleted_data': deleted_data,
+            'sync_results': sync_results,
+        })
+
+        from .serializers import RepoSerializer
+        return Response({
+            'message': 'Repository changed successfully',
+            'old_repo': old_repo_name,
+            'new_repo': RepoSerializer(new_repo).data,
+            'sync_results': sync_results,
+            'deleted_data': deleted_data,
+        })

@@ -29,6 +29,7 @@ export default function AdminSetup() {
     const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
     const [reposLoading, setReposLoading] = useState(false);
     const [pathPrefix, setPathPrefix] = useState('reports');
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
     // Step 4: Data Adapter
     const [adapterType, setAdapterType] = useState<'jdbc' | 'csv' | 'mock'>('jdbc');
@@ -417,13 +418,62 @@ export default function AdminSetup() {
                                     Back
                                 </button>
                                 <button
-                                    onClick={handleRepoSelect}
+                                    onClick={() => setShowConfirmDialog(true)}
                                     disabled={!selectedRepo || reposLoading}
                                     className="btn-primary flex-1"
                                 >
                                     {reposLoading ? 'Connecting...' : 'Connect Repository'}
                                 </button>
                             </div>
+                            {/* Confirmation Dialog */}
+                            {showConfirmDialog && selectedRepo && (
+                                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 fade-in">
+                                    <div className="glass-card p-6 max-w-md w-full mx-4 animate-scale-in">
+                                        <h3 className="text-lg font-semibold mb-4">Confirm Repository Selection</h3>
+                                        <p className="text-gray-600 dark:text-gray-400 mb-4">
+                                            You are about to connect to:
+                                        </p>
+                                        <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 mb-4 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-lg">📦</span>
+                                                <span className="font-medium">{selectedRepo.full_name}</span>
+                                                {selectedRepo.private && (
+                                                    <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">Private</span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                                                <span>🌿</span>
+                                                <span>Branch: {selectedRepo.default_branch}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                                                <span>📁</span>
+                                                <span>Reports path: {pathPrefix || '(root)'}</span>
+                                            </div>
+                                        </div>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                                            All reports will be imported from this repository. Are you sure you want to proceed?
+                                        </p>
+                                        <div className="flex space-x-3">
+                                            <button
+                                                onClick={() => setShowConfirmDialog(false)}
+                                                className="btn-secondary flex-1"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setShowConfirmDialog(false);
+                                                    handleRepoSelect();
+                                                }}
+                                                disabled={reposLoading}
+                                                className="btn-primary flex-1"
+                                            >
+                                                {reposLoading ? 'Connecting...' : 'Yes, Connect'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
