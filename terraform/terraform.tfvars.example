@@ -1,0 +1,8 @@
+resource_group_name = "klex-rg"
+location            = "Central India"
+
+db_password       = "your-db-password"
+django_secret_key = "your-secret-key"
+
+backend_image  = "klexacr123.azurecr.io/backend:latest"
+frontend_image = "klexacr123.azurecr.io/frontend:latest"
