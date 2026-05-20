@@ -117,6 +117,7 @@ export default function JobContextMenu({ isOpen, position, job, onClose, onActio
             label: 'Maintenance',
             items: [
                 { id: 'edit', label: 'Edit Job', icon: <Edit size={15} />, action: 'edit' },
+                { id: 'edit_in_airflow', label: 'Edit in Airflow UI', icon: <Edit size={15} />, action: 'edit_in_airflow', airflowOnly: true },
                 { id: 'delete', label: 'Delete Job', icon: <Trash2 size={15} />, action: 'delete', className: 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30' },
             ],
         },

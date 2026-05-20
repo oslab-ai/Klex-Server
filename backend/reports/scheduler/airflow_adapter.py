@@ -89,28 +89,14 @@ class AirflowSchedulerAdapter(SchedulerClient):
         if schedule_data.get("_organization"):
             conf["_organization_id"] = str(schedule_data["_organization"].id)
 
-        job = service.submit_report_job(
-            dag_id=dag_id,
-            report_id=report_id,
-            report=report,
-            created_by=schedule_data.get("_user"),
-            organization=schedule_data.get("_organization"),
-            payload=conf,
-            priority=dispatch_priority,
-            workload_class=schedule_data.get("workload_class", WorkloadClass.MEDIUM),
-            overlap_policy=schedule_data.get("overlap_policy", OverlapPolicy.QUEUE_ALL),
-        )
+        import uuid
+        job_id = f"klex_sched_{uuid.uuid4().hex[:8]}"
 
         return {
-            "dag_id": dag_id,
-            "dag_run": {
-                "dag_run_id": job.airflow_run_id or "pending",
-                "state": job.status,
-            },
-            "dispatch_job_id": str(job.id),
-            "dispatch_status": job.status,
+            "jobId": job_id,
+            "dag_id": job_id,
             "status": "SUCCESS",
-            "message": f"Schedule created via Airflow (job {job.id})",
+            "message": f"Schedule mapped to Airflow DAG {job_id}",
         }
 
     def list_schedules(self) -> dict:

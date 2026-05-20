@@ -200,6 +200,15 @@ export default function Schedules() {
             case 'edit':
                 // TODO: edit modal
                 break;
+            case 'edit_in_airflow':
+                jobsApi.getAirflowUiUrl().then(res => {
+                    if (res.available && res.ui_url) {
+                        window.open(`${res.ui_url}/dags/${job.dag_id}/grid`, '_blank', 'noopener,noreferrer');
+                    } else {
+                        alert(res.message || 'Airflow UI is not available.');
+                    }
+                }).catch(() => alert('Failed to get Airflow UI URL.'));
+                break;
             case 'delete':
                 if (window.confirm(`Delete job "${job.schedule_name}"?`)) {
                     jobsApi.delete(job.id).then(() => fetchJobs());
