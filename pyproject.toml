@@ -16,6 +16,7 @@ dependencies = [
     "pyyaml>=6.0",
     "langchain>=1.2.18",
     "langchain-openai>=1.2.1",
+    "pytz>=2026.2",
 ]
 
 [project.optional-dependencies]

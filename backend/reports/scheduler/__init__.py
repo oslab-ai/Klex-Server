@@ -170,13 +170,20 @@ def write_active_engine(engine: str) -> None:
         raise ValueError(f"Invalid engine: {engine!r}. Must be 'quartz' or 'airflow'.")
 
     config_path = Path(settings.BASE_DIR) / "scheduler_config.yaml"
-    with open(config_path) as f:
-        raw = yaml.safe_load(f) or {}
+    
+    with open(config_path, "r") as f:
+        content = f.read()
 
-    raw.setdefault("scheduler", {})["active_engine"] = engine
-
+    # Use regex to safely replace just the active_engine value while preserving comments
+    import re
+    new_content = re.sub(
+        r'(active_engine\s*:\s*).*',
+        rf'\1"{engine}"',
+        content
+    )
+    
     with open(config_path, "w") as f:
-        yaml.dump(raw, f, default_flow_style=False, sort_keys=False)
+        f.write(new_content)
 
     logger.info("scheduler_config.yaml updated: active_engine → %s", engine)
 

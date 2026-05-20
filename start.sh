@@ -98,6 +98,7 @@ cleanup() {
     kill $REPORTING_PID 2>/dev/null || true
     kill $AIRFLOW_WEB_PID 2>/dev/null || true
     kill $AIRFLOW_SCHED_PID 2>/dev/null || true
+    kill $AIRFLOW_DAGPROC_PID 2>/dev/null || true
     kill $DISPATCH_PID 2>/dev/null || true
     kill $RECONCILE_PID 2>/dev/null || true
     exit 0
@@ -109,13 +110,9 @@ trap cleanup SIGINT SIGTERM
 echo -e "${GREEN}📦 Setting up backend...${NC}"
 cd backend
 
-# Sync Python dependencies (include airflow extra when engine is active)
+# Sync Python dependencies (include airflow extra so it's always available for migration)
 echo -e "   Installing Python dependencies with uv..."
-if [ "$ACTIVE_ENGINE" = "airflow" ]; then
-    uv sync --extra airflow
-else
-    uv sync
-fi
+uv sync --extra airflow
 
 # Run migrations
 echo -e "   Running database migrations..."
@@ -171,11 +168,14 @@ AIRFLOW_SCHED_PID=""
 DISPATCH_PID=""
 RECONCILE_PID=""
 
-if [ "$ACTIVE_ENGINE" = "airflow" ]; then
+# We now start Airflow and its workers regardless of the active engine.
+# This ensures that zero-downtime migrations TO Airflow are possible because
+# the Airflow API needs to be reachable to receive the schedules.
     echo -e "${GREEN}🌬️  Bootstrapping Apache Airflow...${NC}"
 
     cd backend
     export AIRFLOW_HOME="$(pwd)/airflow_home"
+    export AIRFLOW__CORE__DAGS_FOLDER="$AIRFLOW_HOME/dags"
     mkdir -p "$AIRFLOW_HOME/dags" "$AIRFLOW_HOME/logs"
 
     # ── 1. Initialize / migrate the Airflow metadata DB ─────────
@@ -202,15 +202,21 @@ if [ "$ACTIVE_ENGINE" = "airflow" ]; then
     # ── 3. Start the Airflow scheduler ──────────────────────────
     echo -e "${GREEN}🌬️  Starting Airflow scheduler...${NC}"
     uv run --extra airflow airflow scheduler \
-        --daemon-log-file "$AIRFLOW_HOME/logs/scheduler.log" &
+        --log-file "$AIRFLOW_HOME/logs/scheduler.log" &
     AIRFLOW_SCHED_PID=$!
 
-    # ── 4. Start the Airflow webserver ──────────────────────────
+    # ── 4. Start the Airflow dag-processor (required for v3) ────────
+    echo -e "${GREEN}🌬️  Starting Airflow DAG processor...${NC}"
+    uv run --extra airflow airflow dag-processor \
+        --log-file "$AIRFLOW_HOME/logs/dag-processor.log" &
+    AIRFLOW_DAGPROC_PID=$!
+
+    # ── 5. Start the Airflow webserver (API server in v3) ─────────────────
     AIRFLOW_PORT="${AIRFLOW_WEBSERVER_PORT:-8080}"
-    echo -e "${GREEN}🌬️  Starting Airflow webserver on http://localhost:${AIRFLOW_PORT}${NC}"
-    uv run --extra airflow airflow webserver \
+    echo -e "${GREEN}🌬️  Starting Airflow api-server on http://localhost:${AIRFLOW_PORT}${NC}"
+    uv run --extra airflow airflow api-server \
         --port "$AIRFLOW_PORT" \
-        --daemon-log-file "$AIRFLOW_HOME/logs/webserver.log" &
+        --log-file "$AIRFLOW_HOME/logs/webserver.log" &
     AIRFLOW_WEB_PID=$!
 
     cd ..
@@ -219,7 +225,7 @@ if [ "$ACTIVE_ENGINE" = "airflow" ]; then
     echo -e "   ${CYAN}Waiting for Airflow webserver to become ready...${NC}"
     AIRFLOW_READY=false
     for i in $(seq 1 30); do
-        if curl -sf "http://localhost:${AIRFLOW_PORT}/health" > /dev/null 2>&1; then
+        if curl -sf "http://localhost:${AIRFLOW_PORT}/" > /dev/null 2>&1; then
             AIRFLOW_READY=true
             break
         fi
@@ -253,7 +259,7 @@ if [ "$ACTIVE_ENGINE" = "airflow" ]; then
         done
     ) &
     RECONCILE_PID=$!
-fi
+# End of Airflow block
 
 # ═══════════════════════════════════════════════════════════════
 #  Ready!

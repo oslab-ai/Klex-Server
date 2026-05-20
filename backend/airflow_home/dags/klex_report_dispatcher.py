@@ -37,12 +37,13 @@ def _compile_report(**kwargs):
     dag_run: DagRun = kwargs['dag_run']
     conf = dag_run.conf or {}
     
-    export_formats = conf.get('output_formats', {}).get('outputFormat', ['PDF'])
+    export_formats_conf = conf.get('output_formats') or conf.get('outputFormats', {})
+    export_formats = export_formats_conf.get('outputFormat', ['PDF'])
     if isinstance(export_formats, str):
         export_formats = [export_formats]
         
-    local_jrxml_path = conf.get('report_unit_uri')
-    data_adapter = conf.get('data_adapter', {})
+    local_jrxml_path = conf.get('report_unit_uri') or conf.get('reportUnitUri')
+    data_adapter = conf.get('data_adapter') or conf.get('dataAdapter', {})
     parameters = conf.get('parameters', {})
     
     if not local_jrxml_path:
@@ -106,12 +107,12 @@ def _send_email(**kwargs):
     dag_run: DagRun = kwargs['dag_run']
     conf = dag_run.conf or {}
     
-    delivery_method = conf.get('delivery_method', 'EMAIL')
+    delivery_method = conf.get('delivery_method') or conf.get('deliveryMethod', 'EMAIL')
     if delivery_method != 'EMAIL':
         logger.info(f"Delivery method is {delivery_method}, skipping email.")
         return
         
-    mail_notification = conf.get('mail_notification')
+    mail_notification = conf.get('mail_notification') or conf.get('mailNotification')
     if not mail_notification:
         logger.warning("No mail_notification config provided, skipping email.")
         return
@@ -166,7 +167,7 @@ def _send_email(**kwargs):
         to=to_addresses,
     )
     
-    schedule_name = conf.get('schedule_name', 'report')
+    schedule_name = conf.get('schedule_name') or conf.get('scheduleName', 'report')
     safe_name = "".join(c for c in schedule_name if c.isalnum() or c in (' ', '-', '_')).strip()
     
     for path in compiled_report_paths:
@@ -184,44 +185,16 @@ def _send_email(**kwargs):
     email.send(fail_silently=False)
     logger.info("Email sent successfully.")
 
-def _update_status(**kwargs):
-    from reports.dispatch_service import ReportDispatchService
-
-    dag_run = kwargs['dag_run']
-    conf = dag_run.conf or {}
-
-    remaining = conf.get("remaining_occurrences", 1)
-
-    logger.info(f"Run completed. Remaining occurrences: {remaining}")
-
-    if remaining > 1:
-        service = ReportDispatchService()
-
-        new_conf = {
-            **conf,
-            "remaining_occurrences": remaining - 1
-        }
-        time.sleep(2) 
-
-        service.submit_report_job(
-            dag_id="klex_report_dispatcher",
-            report_id=conf.get("report_id"),
-            payload=new_conf
-        )
-
-        logger.info(f"Triggered next occurrence. Remaining: {remaining - 1}")
-    else:
-        logger.info("All occurrences completed.")
-
+# 1. Provide the fallback universal DAG (for ad-hoc dispatch)
 with DAG(
     'klex_report_dispatcher',
     default_args=default_args,
     description='Universal DAG to compile and dispatch Klex reports',
     schedule=None,  # Triggered externally only
     catchup=False,
-    is_paused_upon_creation=False,  # <--- CRITICAL: Prevents Airflow from leaving new instances paused
-    tags=['klex'],
-) as dag:
+    is_paused_upon_creation=False,
+    tags=['klex', 'ad-hoc'],
+) as universal_dag:
 
     compile_task = PythonOperator(
         task_id='compile_report',
@@ -233,9 +206,81 @@ with DAG(
         python_callable=_send_email,
     )
     
-    status_task = PythonOperator(
-        task_id='update_status',
-        python_callable=_update_status,
-    )
+    compile_task >> email_task
 
-    compile_task >> email_task >> status_task
+# 2. Dynamically generate a DAG for each active ScheduledJob
+try:
+    from reports.models import ScheduledJob
+    active_schedules = ScheduledJob.objects.filter(is_active=True, status='running')
+    for job in active_schedules:
+        dynamic_dag_id = str(job.dag_id)
+        
+        # Determine the schedule from the payload
+        schedule_val = None
+        payload = job.schedule_payload or {}
+        trigger = payload.get('trigger', {})
+        
+        if 'calendarTrigger' in trigger:
+            schedule_val = trigger['calendarTrigger'].get('cronExpression')
+        elif 'simpleTrigger' in trigger:
+            st = trigger['simpleTrigger']
+            interval = int(st.get('recurrenceInterval', 0))
+            unit = st.get('recurrenceIntervalUnit', '').upper()
+            from datetime import timedelta
+            if unit == 'MINUTE': schedule_val = timedelta(minutes=interval)
+            elif unit == 'HOUR': schedule_val = timedelta(hours=interval)
+            elif unit == 'DAY': schedule_val = timedelta(days=interval)
+            elif unit == 'WEEK': schedule_val = timedelta(weeks=interval)
+            
+        # Fallback to legacy cron_expression column if payload is missing
+        if not schedule_val and job.cron_expression:
+            schedule_val = str(job.cron_expression)
+            
+        if not schedule_val:
+            continue
+        
+        def create_dag(dag_id_str, sched, schedule_name):
+            with DAG(
+                dag_id_str,
+                default_args=default_args,
+                description=f'Schedule: {schedule_name}',
+                schedule=sched,
+                catchup=False,
+                is_paused_upon_creation=False,
+                tags=['klex', 'scheduled'],
+            ) as dynamic_dag:
+                
+                def _compile_with_db_payload(**kwargs):
+                    from reports.models import ScheduledJob
+                    try:
+                        db_job = ScheduledJob.objects.get(dag_id=dag_id_str)
+                        kwargs['dag_run'].conf = db_job.schedule_payload
+                    except Exception as e:
+                        logger.error(f"Failed to fetch db payload for {dag_id_str}: {e}")
+                    return _compile_report(**kwargs)
+                
+                # To avoid closure variable scope issues, we pass the _compile_with_db_payload
+                compile_dynamic_task = PythonOperator(
+                    task_id='compile_report', 
+                    python_callable=_compile_with_db_payload
+                )
+                
+                def _email_with_db_payload(**kwargs):
+                    from reports.models import ScheduledJob
+                    try:
+                        db_job = ScheduledJob.objects.get(dag_id=dag_id_str)
+                        kwargs['dag_run'].conf = db_job.schedule_payload
+                    except Exception as e:
+                        logger.error(f"Failed to fetch db payload for {dag_id_str}: {e}")
+                    return _send_email(**kwargs)
+                
+                email_dynamic_task = PythonOperator(
+                    task_id='send_email', 
+                    python_callable=_email_with_db_payload
+                )
+                compile_dynamic_task >> email_dynamic_task
+            return dynamic_dag
+            
+        globals()[dynamic_dag_id] = create_dag(dynamic_dag_id, schedule_val, job.schedule_name)
+except Exception as e:
+    logger.error(f"Failed to dynamically generate scheduled DAGs: {e}")

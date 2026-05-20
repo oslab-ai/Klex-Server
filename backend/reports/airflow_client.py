@@ -313,8 +313,10 @@ class AirflowClient:
                         triggers.  If omitted Airflow will auto-generate one.
         """
         payload: dict[str, Any] = {}
-        if logical_date:
-            payload["logical_date"] = logical_date
+        if not logical_date:
+            from django.utils import timezone
+            logical_date = timezone.now().isoformat()
+        payload["logical_date"] = logical_date
         if dag_run_id:
             payload["dag_run_id"] = dag_run_id
         if conf:
