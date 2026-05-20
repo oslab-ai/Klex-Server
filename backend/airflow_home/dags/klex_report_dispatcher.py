@@ -37,12 +37,13 @@ def _compile_report(**kwargs):
     dag_run: DagRun = kwargs['dag_run']
     conf = dag_run.conf or {}
     
-    export_formats = conf.get('output_formats', {}).get('outputFormat', ['PDF'])
+    export_formats_conf = conf.get('output_formats') or conf.get('outputFormats', {})
+    export_formats = export_formats_conf.get('outputFormat', ['PDF'])
     if isinstance(export_formats, str):
         export_formats = [export_formats]
         
-    local_jrxml_path = conf.get('report_unit_uri')
-    data_adapter = conf.get('data_adapter', {})
+    local_jrxml_path = conf.get('report_unit_uri') or conf.get('reportUnitUri')
+    data_adapter = conf.get('data_adapter') or conf.get('dataAdapter', {})
     parameters = conf.get('parameters', {})
     
     if not local_jrxml_path:
@@ -106,12 +107,12 @@ def _send_email(**kwargs):
     dag_run: DagRun = kwargs['dag_run']
     conf = dag_run.conf or {}
     
-    delivery_method = conf.get('delivery_method', 'EMAIL')
+    delivery_method = conf.get('delivery_method') or conf.get('deliveryMethod', 'EMAIL')
     if delivery_method != 'EMAIL':
         logger.info(f"Delivery method is {delivery_method}, skipping email.")
         return
         
-    mail_notification = conf.get('mail_notification')
+    mail_notification = conf.get('mail_notification') or conf.get('mailNotification')
     if not mail_notification:
         logger.warning("No mail_notification config provided, skipping email.")
         return
@@ -166,7 +167,7 @@ def _send_email(**kwargs):
         to=to_addresses,
     )
     
-    schedule_name = conf.get('schedule_name', 'report')
+    schedule_name = conf.get('schedule_name') or conf.get('scheduleName', 'report')
     safe_name = "".join(c for c in schedule_name if c.isalnum() or c in (' ', '-', '_')).strip()
     
     for path in compiled_report_paths:
