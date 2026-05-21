@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bot, X, Send, Loader2, CheckCircle2, XCircle, AlertTriangle, Download } from 'lucide-react';
 import { chatService, ChatMessage, ActionResult } from '../../api';
+import { useFormFill } from '../../context/FormFillContext';
 
 /* ── Helper: render an action-result card ───────────────────────── */
 const ActionResultCard: React.FC<{ result: ActionResult }> = ({ result }) => {
@@ -94,6 +95,7 @@ export const ChatbotWidget: React.FC = () => {
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+    const { setFormFillState } = useFormFill();
 
     // Scroll to bottom when messages change
     useEffect(() => {
@@ -121,6 +123,14 @@ export const ChatbotWidget: React.FC = () => {
             }
             if (response.action_pending) {
                 assistantMessage.action_pending = response.action_pending;
+            }
+            if (response.form_fill) {
+                assistantMessage.form_fill = response.form_fill;
+                setFormFillState({
+                    reportId: response.form_fill.report_id,
+                    parameters: response.form_fill.parameters,
+                    timestamp: Date.now()
+                });
             }
 
             setMessages(prev => [...prev, assistantMessage]);
@@ -236,6 +246,23 @@ export const ChatbotWidget: React.FC = () => {
                                                 onCancel={handleCancel}
                                                 disabled={isLoading}
                                             />
+                                        )}
+
+                                        {/* Form Fill card */}
+                                        {msg.form_fill && (
+                                            <div className="mt-2 rounded-xl border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 px-3 py-2.5 text-xs text-blue-800 dark:text-blue-300">
+                                                <div className="flex items-center gap-1.5 font-semibold mb-1">
+                                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                                    <span>Form Filled</span>
+                                                </div>
+                                                <div className="space-y-0.5 text-[11px] opacity-90">
+                                                    {Object.entries(msg.form_fill.parameters).map(([key, val]) => (
+                                                        <div key={key}>
+                                                            <span className="font-medium">{key}:</span> {String(val)}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 </div>

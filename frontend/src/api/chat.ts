@@ -5,6 +5,10 @@ export interface ChatMessage {
     content: string;
     action_result?: ActionResult | null;
     action_pending?: ActionPending | null;
+    form_fill?: {
+        report_id: number;
+        parameters: Record<string, string>;
+    } | null;
 }
 
 export interface ActionResult {
@@ -25,6 +29,10 @@ export interface ChatResponse {
     navigation_target?: string | null;
     action_result?: ActionResult | null;
     action_pending?: ActionPending | null;
+    form_fill?: {
+        report_id: number;
+        parameters: Record<string, string>;
+    } | null;
 }
 
 export const chatService = {

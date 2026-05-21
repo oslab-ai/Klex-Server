@@ -230,38 +230,49 @@ def _make_schedule_report_tool(user):
     def schedule_report(
         report_id: int,
         schedule_name: str,
-        cron_expression: str,
         department: str = "General",
         priority: int = 0,
+        trigger_type: str = "calendar",
+        cron_expression: Optional[str] = None,
+        interval: Optional[int] = None,
+        interval_unit: Optional[str] = None,
         max_runs: Optional[int] = None,
+        notification_email: Optional[str] = None,
+        output_formats: Optional[str] = None,
     ) -> str:
         """Schedule a report for automated recurring execution.
 
         Use this when the user wants to schedule, automate, or set up
         recurring execution of a report.
 
-        IMPORTANT: You must translate natural language timing to cron expressions yourself.
-        Never ask the user for a cron expression. Examples:
-        - "every minute" → "* * * * *"
-        - "every day at 9 AM" → "0 9 * * *"
-        - "every Monday at 8 AM" → "0 8 * * 1"
-        - "every hour" → "0 * * * *"
-        - "every 15 minutes" → "*/15 * * * *"
-        - "every weekday at 6am" → "0 6 * * 1-5"
-        - "first of every month" → "0 0 1 * *"
+        IMPORTANT: For normal schedules, use trigger_type="calendar" and translate natural language timing to a cron expression.
+        Examples:
+        - "every day at 9 AM" → cron_expression="0 9 * * *"
+        - "every Monday at 8 AM" → cron_expression="0 8 * * 1"
+        
+        HOWEVER, if the user specifies a maximum number of runs (e.g., "only 3 times", "run 5 times"), 
+        you MUST use trigger_type="simple" and provide interval and interval_unit (MINUTE, HOUR, DAY, WEEK) instead of cron_expression.
+        Examples:
+        - "every minute, 3 times" → trigger_type="simple", interval=1, interval_unit="MINUTE", max_runs=3
+        - "every 2 hours, 5 times" → trigger_type="simple", interval=2, interval_unit="HOUR", max_runs=5
 
         Parse the schedule name from user input like "name - test", "call it X", "name: X".
         If no name given, auto-generate one like "Daily Customer Report".
 
-        Parse occurrence limits from phrases like "only 3 times", "3 occurrences", "run 5 times".
+        If the user did not specify an email address to send the report to, or the output formats (like PDF, Excel), you should ask them for it before scheduling!
 
         Args:
             report_id: The ID of the report from the report catalog.
             schedule_name: A descriptive name for the schedule.
-            cron_expression: Cron expression for the schedule timing (translate from natural language).
             department: Department this schedule belongs to. Defaults to "General".
             priority: Priority level (0 = normal, higher = more important). Defaults to 0.
-            max_runs: Optional maximum number of times the schedule should run. Use when user says "only N times" or "N occurrences".
+            trigger_type: "calendar" or "simple". Use "simple" ONLY if max_runs is specified.
+            cron_expression: Cron expression for the schedule timing (required if trigger_type="calendar").
+            interval: Numeric interval (required if trigger_type="simple").
+            interval_unit: "MINUTE", "HOUR", "DAY", "WEEK" (required if trigger_type="simple").
+            max_runs: Optional maximum number of times the schedule should run.
+            notification_email: Optional email address to send the report to.
+            output_formats: Optional comma-separated formats (e.g. "PDF,XLSX").
         """
         from reports.models import Report, ScheduledJob
         from reports.views import ensure_local_jrxml, _resolve_yaml_datasource
@@ -276,13 +287,57 @@ def _make_schedule_report_tool(user):
                 "message": f"Report with ID {report_id} not found.",
             })
 
+        formats_list = []
+        if output_formats:
+            for fmt in output_formats.split(","):
+                fmt = fmt.strip().upper()
+                fmt = {"EXCEL": "XLSX", "WORD": "DOCX", "POWERPOINT": "PPTX"}.get(fmt, fmt)
+                formats_list.append(fmt)
+        else:
+            formats_list = ["PDF"]
+
+        trigger_data = {}
+        if trigger_type == "simple":
+            trigger_data = {
+                "simpleTrigger": {
+                    "timezone": "UTC",
+                    "recurrenceInterval": interval or 1,
+                    "recurrenceIntervalUnit": interval_unit or "MINUTE",
+                    "occurrenceCount": max_runs if max_runs is not None else -1
+                }
+            }
+        else:
+            trigger_data = {
+                "calendarTrigger": {
+                    "timezone": "UTC",
+                    "cronExpression": cron_expression or "* * * * *"
+                }
+            }
+
         schedule_data = {
             "report_id": report_id,
+            "reportUnitUri": getattr(report, "path", "dummy_uri"),
             "scheduleName": schedule_name,
-            "cronExpression": cron_expression,
+            "outputFormats": { "outputFormat": formats_list },
+            "outputTimeZone": "UTC",
+            "trigger": trigger_data,
+            # These keep backwards compatibility with any existing adapters expecting flat values
+            "cronExpression": cron_expression or "",
             "department": department,
             "priority": priority,
         }
+
+        if notification_email:
+            schedule_data["deliveryMethod"] = "EMAIL"
+            schedule_data["mailNotification"] = {
+                "toAddresses": {
+                    "address": [email.strip() for email in notification_email.split(",")]
+                },
+                "subject": f"Scheduled Report: {report.display_name or report.report_name}",
+                "messageText": "Please find attached the scheduled report.",
+                "resultSendType": "SEND_ATTACHMENT"
+            }
+
         if max_runs is not None:
             schedule_data["maxRuns"] = max_runs
             schedule_data["max_runs"] = max_runs
@@ -335,7 +390,7 @@ def _make_schedule_report_tool(user):
                 status="running",
                 priority=priority,
                 department=department,
-                cron_expression=cron_expression,
+                cron_expression=cron_expression or "",
                 is_active=True,
                 schedule_payload=stored_payload,
                 created_on_engine=get_active_engine(),
@@ -751,6 +806,90 @@ def test_adapter_connection(adapter_id: int) -> str:
         })
 
 
+def _make_get_report_parameters_tool(user):
+    @tool
+    def get_report_parameters(report_id: int) -> str:
+        """Get the parameter schema for a specific report.
+        
+        Always use this tool FIRST when a user asks to fill a form, filter,
+        or apply criteria to a report in natural language. You must know the 
+        expected parameter names and types before you can fill the form.
+        """
+        from reports.models import Report
+        from reports.views import ensure_local_jrxml
+        import requests as http_requests
+        from django.conf import settings
+        
+        try:
+            report = Report.objects.filter(id=report_id).first()
+            if not report:
+                return f"Error: Report with ID {report_id} not found."
+                
+            local_jrxml_path = ensure_local_jrxml(report, user)
+            
+            validation_url = f"{settings.COMPILER_SERVICE_URL}/api/validation/parameters"
+            payload = {
+                'sourceType': 'LOCAL',
+                'path': local_jrxml_path,
+                'parameters': {},
+            }
+            
+            resp = http_requests.post(validation_url, json=payload, timeout=60)
+            if resp.status_code != 200:
+                return f"Error: Failed to fetch parameters from compiler service."
+                
+            raw = resp.json()
+            details = raw.get('parameterDetails', [])
+            
+            # Create a compact schema for the LLM
+            schema = []
+            for p in details:
+                if not p.get('forPrompting', True):
+                    continue
+                schema.append({
+                    "name": p.get('name'),
+                    "type": p.get('expectedType', '').split('.')[-1],
+                    "default": p.get('defaultValue')
+                })
+            
+            return json.dumps({
+                "message": f"Parameter schema for {report.report_name}. Use fill_report_form to apply values.",
+                "schema": schema
+            })
+            
+        except Exception as e:
+            return f"Error fetching parameters: {str(e)}"
+            
+    return get_report_parameters
+
+def _make_fill_report_form_tool(user):
+    @tool
+    def fill_report_form(report_id: int, parameters_json: str) -> str:
+        """Fill a report's parameter form with structured data.
+        
+        Use this tool AFTER you have fetched the parameter schema using get_report_parameters.
+        Extract the values the user requested in natural language and map them to the 
+        correct parameter names in the schema.
+        
+        Args:
+            report_id: The ID of the report.
+            parameters_json: A JSON string mapping parameter names to extracted values.
+                             E.g. '{"start_date": "2025-01-01", "department": "Sales"}'
+        """
+        try:
+            params = json.loads(parameters_json)
+            return json.dumps({
+                "__action__": "fill_form",
+                "report_id": report_id,
+                "parameters": params,
+                "message": "Form parameters extracted successfully.",
+            })
+        except json.JSONDecodeError:
+            return "Error: parameters_json must be a valid JSON string."
+
+    return fill_report_form
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Tool builder — called by ChatbotAPIView to assemble the tools list
 # ──────────────────────────────────────────────────────────────────────
@@ -766,6 +905,8 @@ def build_tools_for_user(user):
         navigate_to_page,
         open_report,
         _make_compile_report_tool(user),
+        _make_get_report_parameters_tool(user),
+        _make_fill_report_form_tool(user),
     ]
 
     if user.is_admin:

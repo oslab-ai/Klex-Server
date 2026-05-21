@@ -157,6 +157,8 @@ def _build_system_prompt(user, report_catalog, adapter_catalog=None, jobs_summar
         '- User: "schedule customer report every friday at 5pm"\n'
         '  → Find "customer" report, schedule_name="Customer Report - Weekly", '
         'cron_expression="0 17 * * 5"\n\n'
+        '- User: "Show me sales from January to March 2025 for East region"\n'
+        '  → Use `get_report_parameters` on Sales report, then use `fill_report_form` to set `start_date`, `end_date`, `region`.\n\n'
         "### Cron expression translation (do this SILENTLY — never show cron to user):\n"
         '- "every minute" → "* * * * *"\n'
         '- "every hour" → "0 * * * *"\n'
@@ -179,8 +181,10 @@ def _build_system_prompt(user, report_catalog, adapter_catalog=None, jobs_summar
         "the user said. Only ask for truly missing REQUIRED information.\n"
         "- **Be smart about matching**: If the user says 'customer report', match it "
         "to the closest report in the catalog. Don't ask for the exact report ID.\n"
-        "- **Use sensible defaults**: department='General', priority=0, format='PDF'. "
-        "Don't ask for optional parameters unless the user seems to want to customize.\n"
+        "- **Use sensible defaults**: department='General', priority=0. "
+        "However, for SCHEDULING, you MUST ask the user for an email address to send the report to, "
+        "and the output format (PDF, Excel, etc.) if they haven't provided them. Do not schedule without an email.\n"
+
         "- **Confirm before executing** destructive/high-impact actions by summarizing "
         "what you understood in plain language (not technical details).\n"
         "  Example: 'I\'ll schedule the Customers report to run every minute, limited to "
@@ -300,28 +304,37 @@ class ChatbotAPIView(APIView):
             elif role == "assistant":
                 langchain_messages.append(AIMessage(content=content))
 
-        # Setup OpenRouter LLM
-        model_name = os.getenv("OPENROUTER_MODEL", "inclusionai/ring-2.6-1t:free")
-        api_key = os.getenv("OPENROUTER_API_KEY")
+        # Setup LLM (OpenAI native or OpenRouter fallback)
+        openai_api_key = os.getenv("OPENAI_API_KEY")
 
-        if not api_key:
-            return Response({"error": "OpenRouter API Key not configured on the server."}, status=500)
+        if openai_api_key:
+            llm = ChatOpenAI(
+                api_key=openai_api_key,
+                model=os.getenv("OPENAI_MODEL", "gpt-4o"),
+                temperature=0.1,
+            )
+        else:
+            model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
+            api_key = os.getenv("OPENROUTER_API_KEY")
 
-        llm = ChatOpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key,
-            model=model_name,
-            temperature=0.1,
-            default_headers={
-                "HTTP-Referer": os.getenv("FRONTEND_BASE_URL", "http://localhost:5173"),
-                "X-Title": "Klex AI Assistant",
-            },
-            extra_body={
-                "provider": {
-                    "require_parameters": True,
+            if not api_key:
+                return Response({"error": "No LLM API Key configured on the server."}, status=500)
+
+            llm = ChatOpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=api_key,
+                model=model_name,
+                temperature=0.1,
+                default_headers={
+                    "HTTP-Referer": os.getenv("FRONTEND_BASE_URL", "http://localhost:5173"),
+                    "X-Title": "Klex AI Assistant",
                 },
-            },
-        )
+                extra_body={
+                    "provider": {
+                        "require_parameters": True,
+                    },
+                },
+            )
 
         # Build tools for this user
         tools = build_tools_for_user(user)
@@ -338,11 +351,21 @@ class ChatbotAPIView(APIView):
         # Parse navigation targets and action results from collected actions
         navigation_target = None
         action_result = None
+        form_fill = None
 
         for action_data in collected_actions:
             # Check for navigation
             if action_data.get("__action__") == "navigate":
                 navigation_target = action_data.get("navigation_target")
+                
+            # Check for form fill
+            if action_data.get("__action__") == "fill_form":
+                form_fill = {
+                    "report_id": action_data.get("report_id"),
+                    "parameters": action_data.get("parameters"),
+                }
+                # Navigate to the report so they see the filled form
+                navigation_target = f"/reports/{action_data.get('report_id')}"
 
             # Check for action results
             ar = action_data.get("__action_result__")
@@ -371,5 +394,9 @@ class ChatbotAPIView(APIView):
 
         if action_result:
             response_data["action_result"] = action_result
+            
+        if form_fill:
+            response_data["form_fill"] = form_fill
 
         return Response(response_data)
+#
