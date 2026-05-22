@@ -38,7 +38,8 @@ public class UserTriggerController {
     public ResponseEntity<Map<String, Object>> createSchedule(@RequestBody ReportSchedule schedule) {
         try {
             // Validate required fields
-            if (schedule.getReportUnitUri() == null || schedule.getReportUnitUri().trim().isEmpty()) {
+            if (schedule.getReportUnitUris() == null
+                    || schedule.getReportUnitUris().stream().allMatch(uri -> uri == null || uri.trim().isEmpty())) {
                 Map<String, Object> errorMap = new HashMap<>();
                 errorMap.put("error", "reportUnitUri is required");
                 return ResponseEntity.badRequest().body(errorMap);

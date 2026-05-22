@@ -20,6 +20,8 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 
 @Slf4j
 @Component
@@ -37,7 +39,11 @@ public class ReportGenerationJob implements Job {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
         try {
-            String reportUnitUri = context.getMergedJobDataMap().getString("reportUnitUri");
+            String reportUnitUriStr = context.getMergedJobDataMap().getString("reportUnitUri");
+            if (reportUnitUriStr == null || reportUnitUriStr.trim().isEmpty()) {
+                throw new JobExecutionException("No reportUnitUri specified.");
+            }
+
             String outputFormatStr = context.getMergedJobDataMap().getString("outputFormat");
             if (outputFormatStr == null) {
                 // Fall back to reading the list or default to PDF
@@ -52,8 +58,6 @@ public class ReportGenerationJob implements Job {
             String deliveryMethod = context.getMergedJobDataMap().getString("deliveryMethod");
             String emailTo = context.getMergedJobDataMap().getString("emailTo");
 
-            log.info("Generating report: {}", reportUnitUri);
-
             // Reconstruct dataAdapter map from JSON string in JobDataMap
             String dataAdapterJson = context.getMergedJobDataMap().getString("dataAdapter");
             Map<String, Object> dataAdapter = null;
@@ -62,46 +66,65 @@ public class ReportGenerationJob implements Job {
                 });
             }
 
-            // Create a temporary file to store the generated report
-            File tempOutputFile = File.createTempFile("report_" + context.getFireInstanceId(),
-                    "." + outputFormatStr.toLowerCase());
-            tempOutputFile.deleteOnExit();
+            String[] reportUnitUris = reportUnitUriStr.split(",");
+            List<byte[]> allReportBytes = new ArrayList<>();
+            List<String> allFileNames = new ArrayList<>();
 
-            // Build ReportRequest for ReportService
-            ReportRequest request = new ReportRequest();
-            request.setSourceType(InputSourceType.LOCAL);
-            request.setPath(reportUnitUri);
-            request.setFormat(outputFormatStr);
-            request.setOutputPath(tempOutputFile.getAbsolutePath());
+            for (String uri : reportUnitUris) {
+                uri = uri.trim();
+                if (uri.isEmpty()) continue;
 
-            if (dataAdapter != null) {
-                request.setDataSourceType((String) dataAdapter.get("dataSourceType"));
-                request.setJdbcUrl((String) dataAdapter.get("jdbcUrl"));
-                request.setJdbcUser((String) dataAdapter.get("jdbcUser"));
-                request.setJdbcPassword((String) dataAdapter.get("jdbcPassword"));
-                request.setCsvFilePath((String) dataAdapter.get("csvFilePath"));
-                request.setJsonFilePath((String) dataAdapter.get("jsonFilePath"));
-                request.setXmlFilePath((String) dataAdapter.get("xmlFilePath"));
-                request.setXmlRecordPath((String) dataAdapter.get("xmlRecordPath"));
-            } else {
-                request.setDataSourceType("inmemory");
+                log.info("Generating report: {}", uri);
+
+                // Create a temporary file to store the generated report
+                File tempOutputFile = File.createTempFile("report_" + context.getFireInstanceId() + "_" + uri.replaceAll("[^a-zA-Z0-9]", "_"),
+                        "." + outputFormatStr.toLowerCase());
+                tempOutputFile.deleteOnExit();
+
+                // Build ReportRequest for ReportService
+                ReportRequest request = new ReportRequest();
+                request.setSourceType(InputSourceType.LOCAL);
+                request.setPath(uri);
+                request.setFormat(outputFormatStr);
+                request.setOutputPath(tempOutputFile.getAbsolutePath());
+
+                if (dataAdapter != null) {
+                    request.setDataSourceType((String) dataAdapter.get("dataSourceType"));
+                    request.setJdbcUrl((String) dataAdapter.get("jdbcUrl"));
+                    request.setJdbcUser((String) dataAdapter.get("jdbcUser"));
+                    request.setJdbcPassword((String) dataAdapter.get("jdbcPassword"));
+                    request.setCsvFilePath((String) dataAdapter.get("csvFilePath"));
+                    request.setJsonFilePath((String) dataAdapter.get("jsonFilePath"));
+                    request.setXmlFilePath((String) dataAdapter.get("xmlFilePath"));
+                    request.setXmlRecordPath((String) dataAdapter.get("xmlRecordPath"));
+                } else {
+                    request.setDataSourceType("inmemory");
+                }
+
+                // Generate the report via ReportService
+                String result = reportService.generateReport(request);
+                if (result.startsWith("Error")) {
+                    tempOutputFile.delete();
+                    throw new JobExecutionException("Report generation failed for URI " + uri + ": " + result);
+                }
+
+                // Read the generated file bytes
+                byte[] reportBytes = Files.readAllBytes(tempOutputFile.toPath());
+                allReportBytes.add(reportBytes);
+
+                // Construct clean filename
+                String baseName = uri.substring(uri.lastIndexOf('/') + 1);
+                String fileName = baseName + "_" + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) +
+                        "." + outputFormatStr.toLowerCase();
+                allFileNames.add(fileName);
+
+                // Clean up
+                tempOutputFile.delete();
             }
 
-            // Generate the report via ReportService
-            String result = reportService.generateReport(request);
-            if (result.startsWith("Error")) {
-                throw new JobExecutionException("Report generation failed: " + result);
+            if ("EMAIL".equals(deliveryMethod) && !allReportBytes.isEmpty()) {
+                reportDeliveryService.sendEmailWithMultipleAttachments(allReportBytes, allFileNames, emailTo);
             }
-
-            // Read the generated file bytes
-            byte[] reportBytes = Files.readAllBytes(tempOutputFile.toPath());
-
-            if ("EMAIL".equals(deliveryMethod)) {
-                reportDeliveryService.sendEmail(reportBytes, emailTo, outputFormat);
-            }
-
-            // Clean up
-            tempOutputFile.delete();
 
         } catch (Exception e) {
             log.error("Error executing report generation job", e);

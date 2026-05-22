@@ -18,6 +18,7 @@ import com.Klex.reportingService.scheduler.model.SimpleTrigger;
 import java.util.Map;
 import java.util.UUID;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -68,7 +69,7 @@ public class ReportSchedulerService {
         // Build JobDetail — store ALL fields needed to reconstruct the schedule later
         JobBuilder jobBuilder = JobBuilder.newJob(ReportGenerationJob.class)
                 .withIdentity(jobId, "report-jobs")
-                .usingJobData("reportUnitUri", schedule.getReportUnitUri())
+                .usingJobData("reportUnitUri", String.join(",", schedule.getReportUnitUris()))
                 .usingJobData("scheduleName", schedule.getScheduleName() != null ? schedule.getScheduleName() : "")
                 .usingJobData("outputFormat", outputFormat)
                 .usingJobData("outputFormats",
@@ -202,7 +203,7 @@ public class ReportSchedulerService {
         // Core fields
         String reportUnitUri = jobDataMap.getString("reportUnitUri");
         if (reportUnitUri != null) {
-            schedule.setReportUnitUri(reportUnitUri);
+            schedule.setReportUnitUris(Arrays.asList(reportUnitUri.split(",")));
         }
 
         String scheduleName = jobDataMap.getString("scheduleName");
