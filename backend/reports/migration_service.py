@@ -421,10 +421,18 @@ class SchedulerMigrationService:
             "parameters": payload.get("parameters", {}),
         }
 
+        if "report_ids" in payload:
+            conf["report_ids"] = payload["report_ids"]
+
         # Carry over report URI and data adapter
         for key in ("report_unit_uri", "reportUnitUri"):
             if payload.get(key):
                 conf["report_unit_uri"] = payload[key]
+                break
+
+        for key in ("reportUnitUris", "report_unit_uris"):
+            if payload.get(key):
+                conf["reportUnitUris"] = payload[key]
                 break
 
         for key in ("data_adapter", "dataAdapter"):
@@ -455,9 +463,17 @@ class SchedulerMigrationService:
             "parameters": payload.get("parameters", {}),
         }
 
+        if "report_ids" in payload:
+            quartz_payload["report_ids"] = payload["report_ids"]
+
         # Report URI
         if payload.get("report_unit_uri"):
             quartz_payload["reportUnitUri"] = payload["report_unit_uri"]
+
+        if "reportUnitUris" in payload:
+            quartz_payload["reportUnitUris"] = payload["reportUnitUris"]
+        elif "report_unit_uris" in payload:
+            quartz_payload["reportUnitUris"] = payload["report_unit_uris"]
 
         # Data adapter
         if payload.get("data_adapter"):
