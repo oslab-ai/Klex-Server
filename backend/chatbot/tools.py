@@ -610,6 +610,9 @@ def _make_create_data_adapter_tool(user):
         - "XML file" → adapter_type="xml"
         - "in-memory" / "test data" → adapter_type="inmemory"
 
+        If you create a file-based adapter (csv, json, xml), you MUST explicitly ask the user 
+        to upload the corresponding file using the web interface, as the chatbot cannot accept file uploads directly.
+
         Args:
             name: A descriptive name for the adapter (e.g., "Sales_DB").
             adapter_type: Type of adapter — one of: jdbc, csv, json, xml, inmemory, mock.
@@ -666,6 +669,10 @@ def _make_create_data_adapter_tool(user):
                 "source": "chatbot",
             })
 
+            msg = f"Data adapter '{name}' ({adapter_type}) created successfully."
+            if adapter_type in ("csv", "json", "xml"):
+                msg += " Please make sure to upload the required file for this adapter in the Data Adapters menu."
+
             return json.dumps({
                 "__action_result__": {
                     "type": "success",
@@ -676,7 +683,7 @@ def _make_create_data_adapter_tool(user):
                         "type": adapter_type,
                     },
                 },
-                "message": f"Data adapter '{name}' ({adapter_type}) created successfully.",
+                "message": msg,
             })
 
         except Exception as e:
