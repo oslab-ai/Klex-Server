@@ -325,6 +325,7 @@ export interface ScheduledJob {
     schedule_name: string;
     report: number | null;
     report_name: string | null;
+    reports?: Report[];
     created_by: string | null;
     created_by_name: string | null;
     status: 'running' | 'finished' | 'failed' | 'on_hold';
@@ -440,6 +441,7 @@ export interface ScheduleRequest {
     trigger?: Record<string, unknown>;
     deliveryMethod: string;
     report_id?: number;
+    report_ids?: number[];
     dag_id?: string;
     cronExpression?: string;
     department?: string;

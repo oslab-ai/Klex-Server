@@ -52,7 +52,7 @@ const DAYS_OF_WEEK = [
 
 export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, reportId }: ScheduleModalProps) {
     // Selection state
-    const [selectedReportId, setSelectedReportId] = useState<number | ''>('');
+    const [selectedReportIds, setSelectedReportIds] = useState<number[]>([]);
 
     // Form state
     const [scheduleName, setScheduleName] = useState('');
@@ -88,8 +88,31 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
         }
     }, [isOpen]);
 
-    // Resolved report ID: either passed as prop or from dropdown selection
-    const activeReportId = reportId || (selectedReportId ? Number(selectedReportId) : null);
+    // Populate selectedReportIds from props when modal opens, or fall back to draft loading
+    useEffect(() => {
+        if (isOpen) {
+            if (reportId) {
+                setSelectedReportIds([reportId]);
+            } else {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    try {
+                        const draft = JSON.parse(saved);
+                        if (draft.selectedReportIds && Array.isArray(draft.selectedReportIds)) {
+                            setSelectedReportIds(draft.selectedReportIds);
+                        } else if (draft.selectedReportId) {
+                            setSelectedReportIds([Number(draft.selectedReportId)]);
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse draft selectedReportIds:', e);
+                    }
+                }
+            }
+        }
+    }, [isOpen, reportId]);
+
+    // Resolved active report ID (the primary report in the list) drives parameter loading
+    const activeReportId = selectedReportIds.length > 0 ? selectedReportIds[0] : null;
 
     // Fetch parameter metadata when a report is selected
     const fetchParamMetadata = useCallback(async (rid: number) => {
@@ -220,8 +243,8 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 
     const handleSubmit = async () => {
         // Validation for missing report selection
-        if (!reportUri && !selectedReportId) {
-            setError('Please select a report to schedule.');
+        if (selectedReportIds.length === 0) {
+            setError('Please select at least one report to schedule.');
             return;
         }
 
@@ -248,17 +271,20 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 
         try {
             const getFinalReportName = () => {
-                if (reportName) return reportName;
-                if (selectedReportId) {
-                    const r = reports.find(r => r.id === selectedReportId);
-                    return r?.report_name || 'Report';
+                if (selectedReportIds.length > 0) {
+                    const r = reports.find(r => r.id === selectedReportIds[0]);
+                    const suffix = selectedReportIds.length > 1 ? ` (+${selectedReportIds.length - 1} more)` : '';
+                    return (r?.report_name || 'Report') + suffix;
                 }
                 return 'Report';
             };
 
+            const primaryReport = selectedReportIds.length > 0 ? reports.find(r => r.id === selectedReportIds[0]) : null;
+
             const payload: ScheduleRequest = {
-                reportUnitUri: reportUri || 'dummy_uri_will_be_replaced_by_backend',
-                ...((reportId || selectedReportId) ? { report_id: (reportId || selectedReportId) as number } : {}),
+                reportUnitUri: primaryReport?.path || 'dummy_uri_will_be_replaced_by_backend',
+                report_id: selectedReportIds.length > 0 ? selectedReportIds[0] : undefined,
+                report_ids: selectedReportIds,
                 scheduleName: scheduleName.trim(),
                 outputFormats: { outputFormat: selectedFormats },
                 outputTimeZone: timezone,
@@ -307,7 +333,11 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 		try {
 			const draft = JSON.parse(saved);
 
-			setSelectedReportId(draft.selectedReportId ?? '');
+			if (draft.selectedReportIds && Array.isArray(draft.selectedReportIds)) {
+				setSelectedReportIds(draft.selectedReportIds);
+			} else if (draft.selectedReportId) {
+				setSelectedReportIds([Number(draft.selectedReportId)]);
+			}
 			setScheduleName(draft.scheduleName ?? '');
 			setTriggerType(draft.triggerType ?? 'simple');
 			setTimezone(draft.timezone ?? 'UTC');
@@ -347,7 +377,7 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 		localStorage.setItem(
 			STORAGE_KEY,
 			JSON.stringify({
-				selectedReportId,
+				selectedReportIds,
 				scheduleName,
 				triggerType,
 				timezone,
@@ -379,7 +409,7 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 	}, [
 		draftLoaded,
 
-		selectedReportId,
+		selectedReportIds,
 		scheduleName,
 		triggerType,
 		timezone,
@@ -410,7 +440,7 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 
 
     const resetForm = () => {
-        setSelectedReportId('');
+        setSelectedReportIds([]);
         setScheduleName('');
         setTriggerType('simple');
         setTimezone('UTC');
@@ -454,8 +484,10 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
                     </svg>
                 </div>
                 <div>
-                    <h2 className="text-lg font-bold">Schedule Report</h2>
-                    {reportName && <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[280px]">{reportName}</p>}
+                    <h2 className="text-lg font-bold">Schedule Report{selectedReportIds.length > 1 ? 's' : ''}</h2>
+                    {reportName && !reportUri && selectedReportIds.length === 0 && <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[280px]">{reportName}</p>}
+                    {selectedReportIds.length > 1 && <p className="text-xs text-violet-500 dark:text-violet-400">{selectedReportIds.length} reports selected</p>}
+                    {selectedReportIds.length === 1 && reportName && <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[280px]">{reportName}</p>}
                 </div>
             </div>
 
@@ -478,17 +510,39 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
                 {/* Global Configuration */}
                 {(!reportUri || reportUri === '') && (
                     <div>
-                        <label className="block text-sm font-medium mb-1.5">Select Report</label>
+                        <label className="block text-sm font-medium mb-1.5">Select Reports</label>
                         <select
-                            value={selectedReportId}
-                            onChange={(e) => setSelectedReportId(e.target.value === '' ? '' : Number(e.target.value))}
-                            className="input w-full"
+                            multiple
+                            value={selectedReportIds.map(String)}
+                            onChange={(e) => {
+                                const selected = Array.from(e.target.selectedOptions, o => Number(o.value));
+                                setSelectedReportIds(selected);
+                            }}
+                            className="input w-full min-h-[120px]"
                         >
-                            <option value="">-- Choose a Report --</option>
                             {reports.map((r) => (
                                 <option key={r.id} value={r.id}>{r.report_name} ({r.repo_name})</option>
                             ))}
                         </select>
+                        {selectedReportIds.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                {selectedReportIds.map(id => {
+                                    const r = reports.find(r => r.id === id);
+                                    return r ? (
+                                        <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
+                                            {r.report_name}
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedReportIds(prev => prev.filter(i => i !== id))}
+                                                className="hover:text-red-500 transition-colors"
+                                            >
+                                                ×
+                                            </button>
+                                        </span>
+                                    ) : null;
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -994,7 +1048,7 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
                                 Loading...
                             </span>
                         ) : (
-                            'Schedule Report'
+                            `Schedule Report${selectedReportIds.length !== 1 ? 's' : ''}`
                         )}
                     </button>
                 </div>

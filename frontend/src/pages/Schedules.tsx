@@ -444,9 +444,18 @@ export default function Schedules() {
                                                     <p className="font-semibold text-gray-900 dark:text-white group-hover:text-primary-700 dark:group-hover:text-primary-300 transition-colors">
                                                         {job.schedule_name}
                                                     </p>
-                                                    {job.report_name && (
+                                                    {job.reports && job.reports.length > 0 ? (
+                                                        <p className="text-xs text-gray-400">
+                                                            {job.reports[0].report_name}
+                                                            {job.reports.length > 1 && (
+                                                                <span className="text-violet-500 dark:text-violet-400 ml-1">
+                                                                    (+{job.reports.length - 1} more)
+                                                                </span>
+                                                            )}
+                                                        </p>
+                                                    ) : job.report_name ? (
                                                         <p className="text-xs text-gray-400">{job.report_name}</p>
-                                                    )}
+                                                    ) : null}
                                                 </div>
                                             </td>
                                             {activeEngine === 'airflow' && (
