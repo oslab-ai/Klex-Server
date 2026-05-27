@@ -23,8 +23,9 @@ public class ReportSchedule {
 
     // New fields to match JSON structure
     private MailNotification mailNotification;
-    private OutputFormats outputFormats;
+    private List<OutputFormats>outputFormats;
     private String outputTimeZone;
+    private Map<String, List<String>> reportOutputFormats;
     private BaseTrigger trigger;
     private Source source;
     private RepositoryDestination repositoryDestination;

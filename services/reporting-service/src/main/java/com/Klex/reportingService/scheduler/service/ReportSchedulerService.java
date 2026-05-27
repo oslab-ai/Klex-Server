@@ -41,9 +41,10 @@ public class ReportSchedulerService {
         // safety)
         String outputFormat = null;
         List<String> outputFormats = null;
-        if (schedule.getOutputFormats() != null && schedule.getOutputFormats().getOutputFormat() != null
-                && !schedule.getOutputFormats().getOutputFormat().isEmpty()) {
-            outputFormats = schedule.getOutputFormats().getOutputFormat();
+        if (schedule.getOutputFormats() != null && !schedule.getOutputFormats().isEmpty()
+                && schedule.getOutputFormats().get(0).getOutputFormat() != null
+                && !schedule.getOutputFormats().get(0).getOutputFormat().isEmpty()) {
+            outputFormats = schedule.getOutputFormats().get(0).getOutputFormat();
             outputFormat = outputFormats.get(0);
         }
 
@@ -88,6 +89,16 @@ public class ReportSchedulerService {
                                 && schedule.getMailNotification().getMessageText() != null
                                         ? schedule.getMailNotification().getMessageText()
                                         : "");
+
+        // Serialize per-report output formats
+        if (schedule.getReportOutputFormats() != null && !schedule.getReportOutputFormats().isEmpty()) {
+            try {
+                String reportFormatsJson = objectMapper.writeValueAsString(schedule.getReportOutputFormats());
+                jobBuilder.usingJobData("reportFormatsJson", reportFormatsJson);
+            } catch (JsonProcessingException e) {
+                log.error("Failed to serialize report output formats", e);
+            }
+        }
 
         if (dataAdapterJson != null) {
             jobBuilder.usingJobData("dataAdapter", dataAdapterJson);
@@ -219,9 +230,11 @@ public class ReportSchedulerService {
         // Output formats
         String outputFormatsStr = jobDataMap.getString("outputFormats");
         if (outputFormatsStr != null && !outputFormatsStr.isEmpty()) {
+            List<ReportSchedule.OutputFormats> formatsList = new ArrayList<>();
             ReportSchedule.OutputFormats formats = new ReportSchedule.OutputFormats();
             formats.setOutputFormat(java.util.Arrays.asList(outputFormatsStr.split(",")));
-            schedule.setOutputFormats(formats);
+            formatsList.add(formats);
+            schedule.setOutputFormats(formatsList);
         }
 
         String outputFormatStr = jobDataMap.getString("outputFormat");
@@ -256,6 +269,19 @@ public class ReportSchedulerService {
             toAddresses.setAddress(java.util.Arrays.asList(emailTo.split(",")));
             mail.setToAddresses(toAddresses);
             schedule.setMailNotification(mail);
+        }
+
+        // Per-report output formats
+        String reportFormatsJson = jobDataMap.getString("reportFormatsJson");
+        if (reportFormatsJson != null && !reportFormatsJson.isEmpty()) {
+            try {
+                Map<String, List<String>> reportOutputFormats = objectMapper.readValue(reportFormatsJson,
+                        new TypeReference<Map<String, List<String>>>() {
+                        });
+                schedule.setReportOutputFormats(reportOutputFormats);
+            } catch (JsonProcessingException e) {
+                log.error("Failed to deserialize report output formats", e);
+            }
         }
 
         // Data adapter

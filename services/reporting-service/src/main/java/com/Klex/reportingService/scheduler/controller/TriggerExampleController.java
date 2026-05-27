@@ -10,8 +10,10 @@ import com.Klex.reportingService.scheduler.model.SimpleTrigger;
 import com.Klex.reportingService.scheduler.service.ReportSchedulerService;
 import com.Klex.reportingService.scheduler.util.TriggerBuilderUtil;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -251,9 +253,11 @@ public class TriggerExampleController {
         schedule.setOutputTimeZone("UTC");
 
         // Set output formats
+        List<ReportSchedule.OutputFormats> outputFormatsList = new ArrayList<>();
         ReportSchedule.OutputFormats outputFormats = new ReportSchedule.OutputFormats();
         outputFormats.setOutputFormat(Arrays.asList("PDF"));
-        schedule.setOutputFormats(outputFormats);
+        outputFormatsList.add(outputFormats);
+        schedule.setOutputFormats(outputFormatsList);
 
         // Set mail notification
         ReportSchedule.MailNotification mailNotification = new ReportSchedule.MailNotification();
