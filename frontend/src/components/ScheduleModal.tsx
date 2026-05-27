@@ -23,8 +23,6 @@ const INTERVAL_UNITS = [
     { value: 'WEEK', label: 'Weeks' },
 ];
 
-const OUTPUT_FORMATS = ['PDF', 'CSV', 'XLS'];
-
 const TIMEZONES = [
     'UTC',
     'America/New_York',
@@ -58,7 +56,7 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
     const [scheduleName, setScheduleName] = useState('');
     const [triggerType, setTriggerType] = useState<TriggerType>('simple');
     const [timezone, setTimezone] = useState('UTC');
-    const [selectedFormats, setSelectedFormats] = useState<string[]>(['PDF']);
+    const [reportFormats, setReportFormats] = useState<Record<number, string[]>>({});
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 	const [draftLoaded, setDraftLoaded] = useState(false);
@@ -110,6 +108,21 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
             }
         }
     }, [isOpen, reportId]);
+
+    // Auto-set default format (PDF) for newly selected reports that don't have a format yet
+    useEffect(() => {
+        setReportFormats(prev => {
+            const next = { ...prev };
+            let changed = false;
+            selectedReportIds.forEach(id => {
+                if (!next[id]) {
+                    next[id] = ['PDF'];
+                    changed = true;
+                }
+            });
+            return changed ? next : prev;
+        });
+    }, [selectedReportIds]);
 
     // Resolved active report ID (the primary report in the list) drives parameter loading
     const activeReportId = selectedReportIds.length > 0 ? selectedReportIds[0] : null;
@@ -175,12 +188,32 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
-    const toggleFormat = (format: string) => {
-        setSelectedFormats(prev =>
-            prev.includes(format)
-                ? prev.filter(f => f !== format)
-                : [...prev, format]
-        );
+    const toggleReportFormat = (reportId: number, format: string) => {
+        setReportFormats(prev => {
+            const current = prev[reportId] || ['PDF'];
+            if (current.includes(format)) {
+                const next = current.filter(f => f !== format);
+                return { ...prev, [reportId]: next.length > 0 ? next : [format] };
+            }
+            return { ...prev, [reportId]: [...current, format] };
+        });
+    };
+
+    const toggleAllFormats = (format: string) => {
+        setReportFormats(prev => {
+            const allHave = selectedReportIds.every(id => (prev[id] || ['PDF']).includes(format));
+            const next = { ...prev };
+            selectedReportIds.forEach(id => {
+                const current = prev[id] || ['PDF'];
+                if (allHave) {
+                    const filtered = current.filter(f => f !== format);
+                    next[id] = filtered.length > 0 ? filtered : [format];
+                } else {
+                    next[id] = current.includes(format) ? current : [...current, format];
+                }
+            });
+            return next;
+        });
     };
 
     const toggleDay = (day: number) => {
@@ -252,8 +285,13 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
             setError('Schedule name is required.');
             return;
         }
-        if (selectedFormats.length === 0) {
-            setError('Select at least one output format.');
+        const missingFormats = selectedReportIds.filter(id => !reportFormats[id] || reportFormats[id].length === 0);
+        if (missingFormats.length > 0) {
+            const missingNames = missingFormats.map(id => {
+                const r = reports.find(r => r.id === id);
+                return r?.report_name || `ID ${id}`;
+            });
+            setError(`Select at least one output format for: ${missingNames.join(', ')}`);
             return;
         }
         if (!emailTo.trim()) {
@@ -281,12 +319,16 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 
             const primaryReport = selectedReportIds.length > 0 ? reports.find(r => r.id === selectedReportIds[0]) : null;
 
+            const allFormatLists = Object.values(reportFormats);
+            const uniqueFormats = [...new Set(allFormatLists.flat())];
+
             const payload: ScheduleRequest = {
                 reportUnitUri: primaryReport?.path || 'dummy_uri_will_be_replaced_by_backend',
                 report_id: selectedReportIds.length > 0 ? selectedReportIds[0] : undefined,
                 report_ids: selectedReportIds,
                 scheduleName: scheduleName.trim(),
-                outputFormats: { outputFormat: selectedFormats },
+                outputFormats: { outputFormat: uniqueFormats.length > 0 ? uniqueFormats : ['PDF'] },
+                reportOutputFormats: reportFormats,
                 outputTimeZone: timezone,
                 trigger: buildTrigger(),
                 deliveryMethod: 'EMAIL',
@@ -341,7 +383,20 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 			setScheduleName(draft.scheduleName ?? '');
 			setTriggerType(draft.triggerType ?? 'simple');
 			setTimezone(draft.timezone ?? 'UTC');
-			setSelectedFormats(draft.selectedFormats ?? ['PDF']);
+			if (draft.reportFormats) {
+				// Migrate old single-format drafts to array format
+				const migrated: Record<number, string[]> = {};
+				let needsMigration = false;
+				for (const [key, val] of Object.entries(draft.reportFormats)) {
+					if (typeof val === 'string') {
+						migrated[Number(key)] = [val];
+						needsMigration = true;
+					} else {
+						migrated[Number(key)] = val as string[];
+					}
+				}
+				setReportFormats(needsMigration ? migrated : draft.reportFormats);
+			}
 			setStartDate(draft.startDate ?? '');
 			setEndDate(draft.endDate ?? '');
 
@@ -381,7 +436,7 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 				scheduleName,
 				triggerType,
 				timezone,
-				selectedFormats,
+				reportFormats,
 				startDate,
 				endDate,
 
@@ -413,7 +468,7 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 		scheduleName,
 		triggerType,
 		timezone,
-		selectedFormats,
+		reportFormats,
 		startDate,
 		endDate,
 
@@ -444,7 +499,7 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
         setScheduleName('');
         setTriggerType('simple');
         setTimezone('UTC');
-        setSelectedFormats(['PDF']);
+        setReportFormats({});
         setStartDate('');
         setEndDate('');
         setInterval(5);
@@ -508,43 +563,80 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
             <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-5">
                 {/* Global Configuration */}
-                {(!reportUri || reportUri === '') && (
+                {(!reportUri || reportUri === '') ? (
                     <div>
-                        <label className="block text-sm font-medium mb-1.5">Select Reports</label>
-                        <select
-                            multiple
-                            value={selectedReportIds.map(String)}
-                            onChange={(e) => {
-                                const selected = Array.from(e.target.selectedOptions, o => Number(o.value));
-                                setSelectedReportIds(selected);
-                            }}
-                            className="input w-full min-h-[120px]"
-                        >
-                            {reports.map((r) => (
-                                <option key={r.id} value={r.id}>{r.report_name} ({r.repo_name})</option>
-                            ))}
-                        </select>
-                        {selectedReportIds.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-2">
-                                {selectedReportIds.map(id => {
-                                    const r = reports.find(r => r.id === id);
-                                    return r ? (
-                                        <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
-                                            {r.report_name}
-                                            <button
-                                                type="button"
-                                                onClick={() => setSelectedReportIds(prev => prev.filter(i => i !== id))}
-                                                className="hover:text-red-500 transition-colors"
-                                            >
-                                                ×
-                                            </button>
-                                        </span>
-                                    ) : null;
-                                })}
-                            </div>
-                        )}
+                        <label className="block text-sm font-medium mb-1.5">
+                            Select Reports
+                        </label>
+
+                        <div className="max-h-[220px] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                            {reports.map((r) => {
+                                const isSelected = selectedReportIds.includes(r.id);
+                                const formats = reportFormats[r.id] || ['PDF'];
+
+                                return (
+                                    <div
+                                        key={r.id}
+                                        className={`px-3 py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
+                                            isSelected
+                                                ? 'bg-violet-50 dark:bg-violet-900/10'
+                                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <label className="flex items-start gap-3 cursor-pointer flex-1">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => {
+                                                        setSelectedReportIds(prev =>
+                                                            prev.includes(r.id)
+                                                                ? prev.filter(id => id !== r.id)
+                                                                : [...prev, r.id]
+                                                        );
+                                                    }}
+                                                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                                />
+
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                        {r.report_name}
+                                                    </span>
+
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {r.repo_name}
+                                                    </span>
+                                                </div>
+                                            </label>
+
+                                            {isSelected && (
+                                                <div className="flex gap-1 shrink-0">
+                                                    {['PDF', 'CSV', 'XLS'].map(fmt => (
+                                                        <button
+                                                            key={fmt}
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleReportFormat(r.id, fmt);
+                                                            }}
+                                                            className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-all ${
+                                                                formats.includes(fmt)
+                                                                    ? 'bg-violet-600 text-white shadow-sm'
+                                                                    : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
+                                                            }`}
+                                                        >
+                                                            {fmt}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
-                )}
+                ) : null}
 
                 {/* Report Parameters */}
                 {activeReportId && (loadingParams || paramMetadata.length > 0) && (
@@ -907,26 +999,34 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 
                 {/* Second Column */}
                 <div className="space-y-5">
-                    {/* Output Formats */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Output Formats</label>
-                        <div className="flex gap-2">
-                            {OUTPUT_FORMATS.map(fmt => (
-                                <button
-                                    key={fmt}
-                                    type="button"
-                                    onClick={() => toggleFormat(fmt)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                        selectedFormats.includes(fmt)
-                                            ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-purple-500/20'
-                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                    }`}
-                                >
-                                    {fmt}
-                                </button>
-                            ))}
+                    {/* Output Formats (master toggle for all reports) */}
+                    {selectedReportIds.length > 0 && (
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Output Formats</label>
+                            <div className="flex gap-2 mb-2">
+                                {['PDF', 'CSV', 'XLS'].map(fmt => {
+                                    const allHave = selectedReportIds.every(
+                                        id => (reportFormats[id] || ['PDF']).includes(fmt)
+                                    );
+                                    return (
+                                        <button
+                                            key={fmt}
+                                            type="button"
+                                            onClick={() => toggleAllFormats(fmt)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                                allHave
+                                                    ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-purple-500/20'
+                                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                            }`}
+                                        >
+                                            {fmt}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <p className="text-[10px] text-gray-400">Toggling a format applies to all reports. Fine-tune per report below.</p>
                         </div>
-                    </div>
+                    )}
 
                     {/* Timezone */}
                     <div>

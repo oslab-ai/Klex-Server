@@ -454,6 +454,7 @@ export interface ScheduleRequest {
         sendToOrganizations?: number[];
     };
     parameters?: Record<string, string>;
+    reportOutputFormats?: Record<number, string[]>;
 }
 
 export interface ScheduleResponse {
