@@ -1515,6 +1515,9 @@ class ScheduleReportView(APIView):
             department = schedule_data.get('department', 'General')
             priority = int(schedule_data.get('priority', 0))
 
+            # Extract per-report output formats
+            report_output_formats = schedule_data.get('reportOutputFormats', {})
+
             # Resolve report artefacts
             if reports:
                 local_jrxml_paths = []
@@ -1531,6 +1534,17 @@ class ScheduleReportView(APIView):
                 if local_jrxml_paths:
                     schedule_data['reportUnitUri'] = ",".join(local_jrxml_paths)
                     schedule_data['report_unit_uri'] = ",".join(local_jrxml_paths)
+
+                # Build per-report format map keyed by local jrxml path
+                if report_output_formats:
+                    report_formats_by_uri = {}
+                    for idx, r in enumerate(reports):
+                        rid = str(r.id)
+                        fmt = report_output_formats.get(rid)
+                        if fmt and idx < len(local_jrxml_paths):
+                            report_formats_by_uri[local_jrxml_paths[idx]] = fmt
+                    if report_formats_by_uri:
+                        schedule_data['reportOutputFormats'] = report_formats_by_uri
 
                 # Resolve data source for schedule payload using the first report
                 try:

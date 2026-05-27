@@ -423,6 +423,8 @@ class SchedulerMigrationService:
 
         if "report_ids" in payload:
             conf["report_ids"] = payload["report_ids"]
+        if "reportOutputFormats" in payload:
+            conf["reportOutputFormats"] = payload["reportOutputFormats"]
 
         # Carry over report URI and data adapter
         for key in ("report_unit_uri", "reportUnitUri"):
@@ -465,6 +467,8 @@ class SchedulerMigrationService:
 
         if "report_ids" in payload:
             quartz_payload["report_ids"] = payload["report_ids"]
+        if "reportOutputFormats" in payload:
+            quartz_payload["reportOutputFormats"] = payload["reportOutputFormats"]
 
         # Report URI
         if payload.get("report_unit_uri"):

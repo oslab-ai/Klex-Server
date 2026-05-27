@@ -83,6 +83,8 @@ class AirflowSchedulerAdapter(SchedulerClient):
         }
         if "report_ids" in schedule_data:
             conf["report_ids"] = schedule_data["report_ids"]
+        if "reportOutputFormats" in schedule_data:
+            conf["reportOutputFormats"] = schedule_data["reportOutputFormats"]
         # Include pre-resolved fields if present
         if "report_unit_uri" in schedule_data:
             conf["report_unit_uri"] = schedule_data["report_unit_uri"]
