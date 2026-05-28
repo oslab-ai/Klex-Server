@@ -41,10 +41,10 @@ public class ReportSchedulerService {
         // safety)
         String outputFormat = null;
         List<String> outputFormats = null;
-        if (schedule.getOutputFormats() != null && !schedule.getOutputFormats().isEmpty()
-                && schedule.getOutputFormats().get(0).getOutputFormat() != null
-                && !schedule.getOutputFormats().get(0).getOutputFormat().isEmpty()) {
-            outputFormats = schedule.getOutputFormats().get(0).getOutputFormat();
+        if (schedule.getOutputFormats() != null
+                && schedule.getOutputFormats().getOutputFormat() != null
+                && !schedule.getOutputFormats().getOutputFormat().isEmpty()) {
+            outputFormats = schedule.getOutputFormats().getOutputFormat();
             outputFormat = outputFormats.get(0);
         }
 
@@ -230,11 +230,9 @@ public class ReportSchedulerService {
         // Output formats
         String outputFormatsStr = jobDataMap.getString("outputFormats");
         if (outputFormatsStr != null && !outputFormatsStr.isEmpty()) {
-            List<ReportSchedule.OutputFormats> formatsList = new ArrayList<>();
             ReportSchedule.OutputFormats formats = new ReportSchedule.OutputFormats();
             formats.setOutputFormat(java.util.Arrays.asList(outputFormatsStr.split(",")));
-            formatsList.add(formats);
-            schedule.setOutputFormats(formatsList);
+            schedule.setOutputFormats(formats);
         }
 
         String outputFormatStr = jobDataMap.getString("outputFormat");
