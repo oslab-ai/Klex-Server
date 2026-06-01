@@ -530,3 +530,94 @@ export interface ParameterMetadataResponse {
     reportName: string;
     parameters: ParameterMetadata[];
 }
+
+// ============================================================
+// Data Exploration types
+// ============================================================
+
+export interface TableColumn {
+    name: string;
+    data_type: string;
+    nullable: boolean;
+}
+
+export type AggregateType =
+    | 'SUM' | 'AVG' | 'MIN' | 'MAX'
+    | 'COUNT' | 'COUNT_DISTINCT'
+    | 'MEDIAN' | 'PRODUCT';
+
+export type ShowAsMode =
+    | 'default'
+    | 'pct_of_row'
+    | 'pct_of_column'
+    | 'pct_of_grand_total';
+
+export interface MetricConfig {
+    column: string;
+    aggregate: AggregateType;
+    alias: string;
+}
+
+export interface FilterConfig {
+    column: string;
+    operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'IN' | 'NOT IN' | 'LIKE' | 'IS NULL' | 'IS NOT NULL';
+    value: string;
+}
+
+export interface ExplorationQuery {
+    table_name: string;
+    dimensions: string[];
+    metrics: MetricConfig[];
+    filters: FilterConfig[];
+    row_limit: number;
+}
+
+export interface ExplorationResult {
+    data: Record<string, unknown>[];
+    row_count: number;
+    columns: string[];
+    query_time_ms: number;
+}
+
+export type PivotArea = 'rows' | 'columns' | 'values' | 'filters';
+
+export interface PivotFieldConfig {
+    /** Unique instance ID — allows the same field in multiple wells */
+    id: string;
+    fieldName: string;
+    area: PivotArea;
+
+    // Row / Column area settings
+    sortOrder?: 'asc' | 'desc';
+    repeatLabels?: boolean;
+
+    // Values area settings
+    aggregate?: AggregateType;
+    alias?: string;
+    showAs?: ShowAsMode;
+    customLabel?: string;
+
+    // Filter area settings
+    filterMode?: 'condition' | 'values';
+    selectedValues?: string[];
+    filterCondition?: { operator: string; value: string };
+}
+
+// ============================================================
+// Conditional Formatting / Analytics types
+// ============================================================
+
+export interface ConditionalFormatRule {
+    /** Which value header column to analyze */
+    targetHeader: string;
+    /** Threshold mode */
+    mode: 'percentile' | 'zscore';
+    /** For percentile: 0.05–0.50 (top/bottom N%). For zscore: the ±cutoff (e.g. 2.0) */
+    threshold: number;
+    /** Color for high outliers */
+    highColor: string;
+    /** Color for low outliers */
+    lowColor: string;
+    /** Whether to use continuous gradient instead of threshold-only */
+    gradient: boolean;
+}

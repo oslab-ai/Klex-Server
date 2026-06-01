@@ -98,6 +98,16 @@ export default function Sidebar() {
                 </svg>
             ),
         },
+        {
+            path: '/explore',
+            label: 'Data Exploration',
+            adminOnly: true,
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10h18M3 14h18M10 3v18M14 3v18" />
+                </svg>
+            ),
+        },
     ];
 
     const adminNavItems: NavItem[] = [
@@ -175,7 +185,7 @@ export default function Sidebar() {
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 {/* Main */}
                 {!collapsed && <div className="sidebar-section-label">Main</div>}
-                {mainNavItems.map(renderNavItem)}
+                {mainNavItems.filter(item => !item.adminOnly || user?.is_admin).map(renderNavItem)}
 
                 {/* Sync button */}
                 {user?.is_admin && (

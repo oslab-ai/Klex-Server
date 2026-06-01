@@ -11,6 +11,7 @@ import Permissions from './pages/Permissions'
 import Schedules from './pages/Schedules'
 import Embeddings from './pages/Embeddings'
 import AirflowRedirect from './pages/AirflowRedirect'
+import DataExploration from './pages/DataExploration'
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
     const { user, loading } = useAuth()
@@ -61,6 +62,11 @@ function App() {
                 <Route index element={<Reports />} />
                 <Route path="reports/:id" element={<ReportViewer />} />
                 <Route path="embeddings" element={<Embeddings />} />
+                <Route path="explore" element={
+                    <ProtectedRoute adminOnly>
+                        <DataExploration />
+                    </ProtectedRoute>
+                } />
                 <Route path="users" element={
                     <ProtectedRoute adminOnly>
                         <Users />

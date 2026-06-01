@@ -34,6 +34,9 @@ import type {
     DispatchSubmitRequest,
     DispatchSubmitResponse,
     DispatchQueueSummary,
+    TableColumn,
+    ExplorationQuery,
+    ExplorationResult,
 } from '../types';
 
 // Auth API
@@ -360,6 +363,32 @@ export const dataAdaptersApi = {
 
     testConnection: async (adapterData: { adapter_type: string; connection_details: Record<string, unknown> }): Promise<TestConnectionResponse> => {
         const { data } = await api.post<TestConnectionResponse>('/api/data-adapters/test/', adapterData);
+        return data;
+    },
+
+    // Data Exploration endpoints
+    getTables: async (id: number): Promise<{ tables: string[] }> => {
+        const { data } = await api.get<{ tables: string[] }>(`/api/data-adapters/${id}/tables/`);
+        return data;
+    },
+
+    getColumns: async (id: number, tableName: string): Promise<{ columns: TableColumn[] }> => {
+        const { data } = await api.get<{ columns: TableColumn[] }>(
+            `/api/data-adapters/${id}/columns/`, { params: { table: tableName } }
+        );
+        return data;
+    },
+
+    executeQuery: async (id: number, query: ExplorationQuery): Promise<ExplorationResult> => {
+        const { data } = await api.post<ExplorationResult>(`/api/data-adapters/${id}/query/`, query);
+        return data;
+    },
+
+    getDistinctValues: async (id: number, tableName: string, columnName: string): Promise<{ values: string[] }> => {
+        const { data } = await api.get<{ values: string[] }>(
+            `/api/data-adapters/${id}/distinct-values/`,
+            { params: { table: tableName, column: columnName } }
+        );
         return data;
     },
 };
