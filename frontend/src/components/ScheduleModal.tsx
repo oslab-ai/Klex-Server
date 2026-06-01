@@ -23,8 +23,6 @@ const INTERVAL_UNITS = [
     { value: 'WEEK', label: 'Weeks' },
 ];
 
-const OUTPUT_FORMATS = ['PDF', 'CSV', 'XLS'];
-
 const TIMEZONES = [
     'UTC',
     'America/New_York',
@@ -52,13 +50,13 @@ const DAYS_OF_WEEK = [
 
 export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, reportId }: ScheduleModalProps) {
     // Selection state
-    const [selectedReportId, setSelectedReportId] = useState<number | ''>('');
+    const [selectedReportIds, setSelectedReportIds] = useState<number[]>([]);
 
     // Form state
     const [scheduleName, setScheduleName] = useState('');
     const [triggerType, setTriggerType] = useState<TriggerType>('simple');
     const [timezone, setTimezone] = useState('UTC');
-    const [selectedFormats, setSelectedFormats] = useState<string[]>(['PDF']);
+    const [reportFormats, setReportFormats] = useState<Record<number, string[]>>({});
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 	const [draftLoaded, setDraftLoaded] = useState(false);
@@ -88,8 +86,46 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
         }
     }, [isOpen]);
 
-    // Resolved report ID: either passed as prop or from dropdown selection
-    const activeReportId = reportId || (selectedReportId ? Number(selectedReportId) : null);
+    // Populate selectedReportIds from props when modal opens, or fall back to draft loading
+    useEffect(() => {
+        if (isOpen) {
+            if (reportId) {
+                setSelectedReportIds([reportId]);
+            } else {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    try {
+                        const draft = JSON.parse(saved);
+                        if (draft.selectedReportIds && Array.isArray(draft.selectedReportIds)) {
+                            setSelectedReportIds(draft.selectedReportIds);
+                        } else if (draft.selectedReportId) {
+                            setSelectedReportIds([Number(draft.selectedReportId)]);
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse draft selectedReportIds:', e);
+                    }
+                }
+            }
+        }
+    }, [isOpen, reportId]);
+
+    // Auto-set default format (PDF) for newly selected reports that don't have a format yet
+    useEffect(() => {
+        setReportFormats(prev => {
+            const next = { ...prev };
+            let changed = false;
+            selectedReportIds.forEach(id => {
+                if (!next[id]) {
+                    next[id] = ['PDF'];
+                    changed = true;
+                }
+            });
+            return changed ? next : prev;
+        });
+    }, [selectedReportIds]);
+
+    // Resolved active report ID (the primary report in the list) drives parameter loading
+    const activeReportId = selectedReportIds.length > 0 ? selectedReportIds[0] : null;
 
     // Fetch parameter metadata when a report is selected
     const fetchParamMetadata = useCallback(async (rid: number) => {
@@ -152,12 +188,32 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
-    const toggleFormat = (format: string) => {
-        setSelectedFormats(prev =>
-            prev.includes(format)
-                ? prev.filter(f => f !== format)
-                : [...prev, format]
-        );
+    const toggleReportFormat = (reportId: number, format: string) => {
+        setReportFormats(prev => {
+            const current = prev[reportId] || ['PDF'];
+            if (current.includes(format)) {
+                const next = current.filter(f => f !== format);
+                return { ...prev, [reportId]: next.length > 0 ? next : [format] };
+            }
+            return { ...prev, [reportId]: [...current, format] };
+        });
+    };
+
+    const toggleAllFormats = (format: string) => {
+        setReportFormats(prev => {
+            const allHave = selectedReportIds.every(id => (prev[id] || ['PDF']).includes(format));
+            const next = { ...prev };
+            selectedReportIds.forEach(id => {
+                const current = prev[id] || ['PDF'];
+                if (allHave) {
+                    const filtered = current.filter(f => f !== format);
+                    next[id] = filtered.length > 0 ? filtered : [format];
+                } else {
+                    next[id] = current.includes(format) ? current : [...current, format];
+                }
+            });
+            return next;
+        });
     };
 
     const toggleDay = (day: number) => {
@@ -220,8 +276,8 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 
     const handleSubmit = async () => {
         // Validation for missing report selection
-        if (!reportUri && !selectedReportId) {
-            setError('Please select a report to schedule.');
+        if (selectedReportIds.length === 0) {
+            setError('Please select at least one report to schedule.');
             return;
         }
 
@@ -229,8 +285,13 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
             setError('Schedule name is required.');
             return;
         }
-        if (selectedFormats.length === 0) {
-            setError('Select at least one output format.');
+        const missingFormats = selectedReportIds.filter(id => !reportFormats[id] || reportFormats[id].length === 0);
+        if (missingFormats.length > 0) {
+            const missingNames = missingFormats.map(id => {
+                const r = reports.find(r => r.id === id);
+                return r?.report_name || `ID ${id}`;
+            });
+            setError(`Select at least one output format for: ${missingNames.join(', ')}`);
             return;
         }
         if (!emailTo.trim()) {
@@ -248,19 +309,26 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 
         try {
             const getFinalReportName = () => {
-                if (reportName) return reportName;
-                if (selectedReportId) {
-                    const r = reports.find(r => r.id === selectedReportId);
-                    return r?.report_name || 'Report';
+                if (selectedReportIds.length > 0) {
+                    const r = reports.find(r => r.id === selectedReportIds[0]);
+                    const suffix = selectedReportIds.length > 1 ? ` (+${selectedReportIds.length - 1} more)` : '';
+                    return (r?.report_name || 'Report') + suffix;
                 }
                 return 'Report';
             };
 
+            const primaryReport = selectedReportIds.length > 0 ? reports.find(r => r.id === selectedReportIds[0]) : null;
+
+            const allFormatLists = Object.values(reportFormats);
+            const uniqueFormats = [...new Set(allFormatLists.flat())];
+
             const payload: ScheduleRequest = {
-                reportUnitUri: reportUri || 'dummy_uri_will_be_replaced_by_backend',
-                ...((reportId || selectedReportId) ? { report_id: (reportId || selectedReportId) as number } : {}),
+                reportUnitUri: primaryReport?.path || 'dummy_uri_will_be_replaced_by_backend',
+                report_id: selectedReportIds.length > 0 ? selectedReportIds[0] : undefined,
+                report_ids: selectedReportIds,
                 scheduleName: scheduleName.trim(),
-                outputFormats: { outputFormat: selectedFormats },
+                outputFormats: { outputFormat: uniqueFormats.length > 0 ? uniqueFormats : ['PDF'] },
+                reportOutputFormats: reportFormats,
                 outputTimeZone: timezone,
                 trigger: buildTrigger(),
                 deliveryMethod: 'EMAIL',
@@ -307,11 +375,28 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 		try {
 			const draft = JSON.parse(saved);
 
-			setSelectedReportId(draft.selectedReportId ?? '');
+			if (draft.selectedReportIds && Array.isArray(draft.selectedReportIds)) {
+				setSelectedReportIds(draft.selectedReportIds);
+			} else if (draft.selectedReportId) {
+				setSelectedReportIds([Number(draft.selectedReportId)]);
+			}
 			setScheduleName(draft.scheduleName ?? '');
 			setTriggerType(draft.triggerType ?? 'simple');
 			setTimezone(draft.timezone ?? 'UTC');
-			setSelectedFormats(draft.selectedFormats ?? ['PDF']);
+			if (draft.reportFormats) {
+				// Migrate old single-format drafts to array format
+				const migrated: Record<number, string[]> = {};
+				let needsMigration = false;
+				for (const [key, val] of Object.entries(draft.reportFormats)) {
+					if (typeof val === 'string') {
+						migrated[Number(key)] = [val];
+						needsMigration = true;
+					} else {
+						migrated[Number(key)] = val as string[];
+					}
+				}
+				setReportFormats(needsMigration ? migrated : draft.reportFormats);
+			}
 			setStartDate(draft.startDate ?? '');
 			setEndDate(draft.endDate ?? '');
 
@@ -347,11 +432,11 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 		localStorage.setItem(
 			STORAGE_KEY,
 			JSON.stringify({
-				selectedReportId,
+				selectedReportIds,
 				scheduleName,
 				triggerType,
 				timezone,
-				selectedFormats,
+				reportFormats,
 				startDate,
 				endDate,
 
@@ -379,11 +464,11 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 	}, [
 		draftLoaded,
 
-		selectedReportId,
+		selectedReportIds,
 		scheduleName,
 		triggerType,
 		timezone,
-		selectedFormats,
+		reportFormats,
 		startDate,
 		endDate,
 
@@ -410,11 +495,11 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 
 
     const resetForm = () => {
-        setSelectedReportId('');
+        setSelectedReportIds([]);
         setScheduleName('');
         setTriggerType('simple');
         setTimezone('UTC');
-        setSelectedFormats(['PDF']);
+        setReportFormats({});
         setStartDate('');
         setEndDate('');
         setInterval(5);
@@ -454,8 +539,10 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
                     </svg>
                 </div>
                 <div>
-                    <h2 className="text-lg font-bold">Schedule Report</h2>
-                    {reportName && <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[280px]">{reportName}</p>}
+                    <h2 className="text-lg font-bold">Schedule Report{selectedReportIds.length > 1 ? 's' : ''}</h2>
+                    {reportName && !reportUri && selectedReportIds.length === 0 && <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[280px]">{reportName}</p>}
+                    {selectedReportIds.length > 1 && <p className="text-xs text-violet-500 dark:text-violet-400">{selectedReportIds.length} reports selected</p>}
+                    {selectedReportIds.length === 1 && reportName && <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[280px]">{reportName}</p>}
                 </div>
             </div>
 
@@ -476,21 +563,80 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
             <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-5">
                 {/* Global Configuration */}
-                {(!reportUri || reportUri === '') && (
+                {(!reportUri || reportUri === '') ? (
                     <div>
-                        <label className="block text-sm font-medium mb-1.5">Select Report</label>
-                        <select
-                            value={selectedReportId}
-                            onChange={(e) => setSelectedReportId(e.target.value === '' ? '' : Number(e.target.value))}
-                            className="input w-full"
-                        >
-                            <option value="">-- Choose a Report --</option>
-                            {reports.map((r) => (
-                                <option key={r.id} value={r.id}>{r.report_name} ({r.repo_name})</option>
-                            ))}
-                        </select>
+                        <label className="block text-sm font-medium mb-1.5">
+                            Select Reports
+                        </label>
+
+                        <div className="max-h-[220px] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                            {reports.map((r) => {
+                                const isSelected = selectedReportIds.includes(r.id);
+                                const formats = reportFormats[r.id] || ['PDF'];
+
+                                return (
+                                    <div
+                                        key={r.id}
+                                        className={`px-3 py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
+                                            isSelected
+                                                ? 'bg-violet-50 dark:bg-violet-900/10'
+                                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <label className="flex items-start gap-3 cursor-pointer flex-1">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => {
+                                                        setSelectedReportIds(prev =>
+                                                            prev.includes(r.id)
+                                                                ? prev.filter(id => id !== r.id)
+                                                                : [...prev, r.id]
+                                                        );
+                                                    }}
+                                                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                                />
+
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                        {r.report_name}
+                                                    </span>
+
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {r.repo_name}
+                                                    </span>
+                                                </div>
+                                            </label>
+
+                                            {isSelected && (
+                                                <div className="flex gap-1 shrink-0">
+                                                    {['PDF', 'CSV', 'XLS'].map(fmt => (
+                                                        <button
+                                                            key={fmt}
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleReportFormat(r.id, fmt);
+                                                            }}
+                                                            className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-all ${
+                                                                formats.includes(fmt)
+                                                                    ? 'bg-violet-600 text-white shadow-sm'
+                                                                    : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
+                                                            }`}
+                                                        >
+                                                            {fmt}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
-                )}
+                ) : null}
 
                 {/* Report Parameters */}
                 {activeReportId && (loadingParams || paramMetadata.length > 0) && (
@@ -853,26 +999,34 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 
                 {/* Second Column */}
                 <div className="space-y-5">
-                    {/* Output Formats */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Output Formats</label>
-                        <div className="flex gap-2">
-                            {OUTPUT_FORMATS.map(fmt => (
-                                <button
-                                    key={fmt}
-                                    type="button"
-                                    onClick={() => toggleFormat(fmt)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                        selectedFormats.includes(fmt)
-                                            ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-purple-500/20'
-                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                    }`}
-                                >
-                                    {fmt}
-                                </button>
-                            ))}
+                    {/* Output Formats (master toggle for all reports) */}
+                    {selectedReportIds.length > 0 && (
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Output Formats</label>
+                            <div className="flex gap-2 mb-2">
+                                {['PDF', 'CSV', 'XLS'].map(fmt => {
+                                    const allHave = selectedReportIds.every(
+                                        id => (reportFormats[id] || ['PDF']).includes(fmt)
+                                    );
+                                    return (
+                                        <button
+                                            key={fmt}
+                                            type="button"
+                                            onClick={() => toggleAllFormats(fmt)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                                allHave
+                                                    ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-purple-500/20'
+                                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                            }`}
+                                        >
+                                            {fmt}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <p className="text-[10px] text-gray-400">Toggling a format applies to all reports. Fine-tune per report below.</p>
                         </div>
-                    </div>
+                    )}
 
                     {/* Timezone */}
                     <div>
@@ -994,7 +1148,7 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
                                 Loading...
                             </span>
                         ) : (
-                            'Schedule Report'
+                            `Schedule Report${selectedReportIds.length !== 1 ? 's' : ''}`
                         )}
                     </button>
                 </div>

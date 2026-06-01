@@ -81,9 +81,15 @@ class AirflowSchedulerAdapter(SchedulerClient):
             "mail_notification": schedule_data.get("mailNotification", {}),
             "parameters": schedule_data.get("parameters", {})
         }
+        if "report_ids" in schedule_data:
+            conf["report_ids"] = schedule_data["report_ids"]
+        if "reportOutputFormats" in schedule_data:
+            conf["reportOutputFormats"] = schedule_data["reportOutputFormats"]
         # Include pre-resolved fields if present
         if "report_unit_uri" in schedule_data:
             conf["report_unit_uri"] = schedule_data["report_unit_uri"]
+        if "reportUnitUris" in schedule_data:
+            conf["reportUnitUris"] = schedule_data["reportUnitUris"]
         if "data_adapter" in schedule_data:
             conf["data_adapter"] = schedule_data["data_adapter"]
         if schedule_data.get("_organization"):

@@ -44,4 +44,28 @@ public class ReportDeliveryService {
             throw e;
         }
     }
+
+    public void sendEmailWithMultipleAttachments(java.util.List<byte[]> reportsBytes, java.util.List<String> fileNames, String emailTo) throws MessagingException {
+        MimeMessage message = mailSender.createMimeMessage();
+
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+
+            helper.setTo(emailTo);
+            helper.setSubject("Generated Reports");
+            helper.setText("Please find the attached reports.");
+
+            for (int i = 0; i < reportsBytes.size(); i++) {
+                final byte[] bytes = reportsBytes.get(i);
+                String fileName = fileNames.get(i);
+                helper.addAttachment(fileName, () -> new java.io.ByteArrayInputStream(bytes));
+            }
+
+            mailSender.send(message);
+            log.info("Reports sent via email to: {}", emailTo);
+        } catch (javax.mail.MessagingException e) {
+            log.error("Failed to send email to: {}", emailTo, e);
+            throw e;
+        }
+    }
 }

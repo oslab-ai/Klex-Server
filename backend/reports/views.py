@@ -1493,37 +1493,62 @@ class ScheduleReportView(APIView):
     def post(self, request):
         try:
             schedule_data = dict(request.data)
+            report_ids = schedule_data.get('report_ids')
             report_id = schedule_data.get('report_id')
+
+            if not report_ids and report_id:
+                report_ids = [report_id]
+
+            reports = []
+            if report_ids:
+                for r_id in report_ids:
+                    try:
+                        reports.append(Report.objects.get(id=r_id))
+                    except Report.DoesNotExist:
+                        return Response(
+                            {'error': f'Report with ID {r_id} not found'},
+                            status=status.HTTP_404_NOT_FOUND,
+                        )
+
             schedule_name = schedule_data.get('scheduleName', '')
             cron_expression = schedule_data.get('cronExpression', '')
             department = schedule_data.get('department', 'General')
             priority = int(schedule_data.get('priority', 0))
 
-            report = None
-            if report_id:
-                try:
-                    report = Report.objects.get(id=report_id)
-                except Report.DoesNotExist:
-                    return Response(
-                        {'error': f'Report with ID {report_id} not found'},
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
+            # Extract per-report output formats
+            report_output_formats = schedule_data.get('reportOutputFormats', {})
 
             # Resolve report artefacts
-            if report:
-                try:
-                    local_jrxml_path = ensure_local_jrxml(report, request.user)
-                    schedule_data['reportUnitUri'] = local_jrxml_path
-                    schedule_data['report_unit_uri'] = local_jrxml_path
-                except Exception as e:
-                    return Response(
-                        {'error': f'Failed to download compilation file: {str(e)}'},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
+            if reports:
+                local_jrxml_paths = []
+                for r in reports:
+                    try:
+                        local_jrxml_paths.append(ensure_local_jrxml(r, request.user))
+                    except Exception as e:
+                        return Response(
+                            {'error': f'Failed to download compilation file for report {r.report_name}: {str(e)}'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        )
 
-                # Resolve data source for schedule payload
+                schedule_data['reportUnitUris'] = local_jrxml_paths
+                if local_jrxml_paths:
+                    schedule_data['reportUnitUri'] = ",".join(local_jrxml_paths)
+                    schedule_data['report_unit_uri'] = ",".join(local_jrxml_paths)
+
+                # Build per-report format map keyed by local jrxml path
+                if report_output_formats:
+                    report_formats_by_uri = {}
+                    for idx, r in enumerate(reports):
+                        rid = str(r.id)
+                        fmt = report_output_formats.get(rid)
+                        if fmt and idx < len(local_jrxml_paths):
+                            report_formats_by_uri[local_jrxml_paths[idx]] = fmt
+                    if report_formats_by_uri:
+                        schedule_data['reportOutputFormats'] = report_formats_by_uri
+
+                # Resolve data source for schedule payload using the first report
                 try:
-                    adapter_payload = _resolve_yaml_datasource(report, request.user)
+                    adapter_payload = _resolve_yaml_datasource(reports[0], request.user)
                     schedule_data['dataAdapter'] = adapter_payload
                     schedule_data['data_adapter'] = adapter_payload
                 except Exception as e:
@@ -1548,11 +1573,13 @@ class ScheduleReportView(APIView):
                 k: v for k, v in schedule_data.items()
                 if k not in ('_user', '_organization') and not callable(v)
             }
+            if report_ids:
+                stored_payload['report_ids'] = report_ids
 
             job = ScheduledJob.objects.create(
                 dag_id=dag_id or f'{get_active_engine()}_{ScheduledJob.objects.count() + 1}',
                 schedule_name=schedule_name,
-                report=report,
+                report=reports[0] if reports else None,
                 created_by=request.user,
                 status='running',
                 priority=priority,
