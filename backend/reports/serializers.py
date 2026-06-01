@@ -70,11 +70,12 @@ class ScheduledJobSerializer(serializers.ModelSerializer):
     report_name = serializers.CharField(source='report.report_name', read_only=True, default=None)
     created_by_name = serializers.CharField(source='created_by.username', read_only=True, default=None)
     comment_count = serializers.IntegerField(source='comments.count', read_only=True)
+    reports = serializers.SerializerMethodField()
 
     class Meta:
         model = ScheduledJob
         fields = [
-            'id', 'dag_id', 'schedule_name', 'report', 'report_name',
+            'id', 'dag_id', 'schedule_name', 'report', 'report_name', 'reports',
             'created_by', 'created_by_name', 'status', 'priority',
             'department', 'cron_expression', 'frequency_label',
             'machine_name', 'estimated_runtime_min', 'max_runtime_min',
@@ -83,6 +84,16 @@ class ScheduledJobSerializer(serializers.ModelSerializer):
             'comment_count', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_reports(self, obj):
+        payload = obj.schedule_payload or {}
+        report_ids = payload.get('report_ids', [])
+        if not report_ids and obj.report_id:
+            report_ids = [obj.report_id]
+        if report_ids:
+            reports = Report.objects.filter(id__in=report_ids)
+            return ReportSerializer(reports, many=True).data
+        return []
 
 
 class JobCommentSerializer(serializers.ModelSerializer):

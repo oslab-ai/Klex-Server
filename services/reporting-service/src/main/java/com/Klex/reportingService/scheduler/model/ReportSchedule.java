@@ -8,7 +8,7 @@ import java.util.Map;
 public class ReportSchedule {
 
     private String jobId;
-    private String reportUnitUri;
+    private List<String> reportUnitUris;
     private String scheduleName;
 
     // Quartz trigger metadata (populated for list/detail responses)
@@ -25,6 +25,7 @@ public class ReportSchedule {
     private MailNotification mailNotification;
     private OutputFormats outputFormats;
     private String outputTimeZone;
+    private Map<String, List<String>> reportOutputFormats;
     private BaseTrigger trigger;
     private Source source;
     private RepositoryDestination repositoryDestination;

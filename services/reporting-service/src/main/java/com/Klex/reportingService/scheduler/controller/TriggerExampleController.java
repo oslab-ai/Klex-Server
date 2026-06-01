@@ -246,7 +246,7 @@ public class TriggerExampleController {
      */
     private ReportSchedule createBasicReportSchedule() {
         ReportSchedule schedule = new ReportSchedule();
-        schedule.setReportUnitUri("/public/Samples/Reports/RevenueDetailReport");
+        schedule.setReportUnitUris(Arrays.asList("/public/Samples/Reports/RevenueDetailReport"));
         schedule.setScheduleName("Example Report Schedule");
         schedule.setOutputTimeZone("UTC");
 
