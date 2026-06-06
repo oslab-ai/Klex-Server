@@ -1143,150 +1143,189 @@ class DataAdapterQueryView(APIView):
         exploration payload, wrapping the table in a limited subquery.
         Returns (query: sql.Composed, params: list, aliases: list).
         """
-        table_name = payload.get('table_name', '')
-        dimensions = payload.get('dimensions', [])
-        metrics = payload.get('metrics', [])
-        filters = payload.get('filters', [])
-        row_limit = payload.get('row_limit')
-        if row_limit is not None:
-            try:
-                row_limit = min(int(row_limit), MAX_ROW_LIMIT)
-            except (ValueError, TypeError):
-                row_limit = None
+        from opentelemetry import trace
+        tracer = trace.get_tracer("klex.dataadapter")
 
-        if not table_name:
-            raise ValueError('table_name is required.')
-        _validate_identifier(table_name, 'table_name')
+        with tracer.start_as_current_span("build_safe_query") as main_span:
+            table_name = payload.get('table_name', '')
+            dimensions = payload.get('dimensions', [])
+            metrics = payload.get('metrics', [])
+            filters = payload.get('filters', [])
+            row_limit = payload.get('row_limit')
+            if row_limit is not None:
+                try:
+                    row_limit = min(int(row_limit), MAX_ROW_LIMIT)
+                except (ValueError, TypeError):
+                    row_limit = None
 
-        if not dimensions and not metrics:
-            raise ValueError('At least one dimension or metric is required.')
+            if not table_name:
+                raise ValueError('table_name is required.')
+            _validate_identifier(table_name, 'table_name')
 
-        select_parts = []
-        group_by_parts = []
-        aliases = []
+            if not dimensions and not metrics:
+                raise ValueError('At least one dimension or metric is required.')
 
-        # --- dimensions ---
-        for dim in dimensions:
-            _validate_identifier(dim, 'dimension')
-            ident = psql.Identifier(dim)
-            select_parts.append(ident)
-            group_by_parts.append(ident)
-            aliases.append(dim)
+            print("\n--- [POSTGRES SINGLE-TABLE SQL QUERY BUILD START] ---")
+            print(f"Base Table: {table_name}")
+            main_span.set_attribute("query.table_name", table_name)
 
-        # --- metrics ---
-        for metric in metrics:
-            col = metric.get('column', '')
-            agg = metric.get('aggregate', '').upper()
-            alias = metric.get('alias', '')
+            select_parts = []
+            group_by_parts = []
+            aliases = []
 
-            _validate_identifier(col, 'metric column')
-            if alias:
-                _validate_identifier(alias, 'metric alias')
+            # --- dimensions ---
+            with tracer.start_as_current_span("sql_builder.dimensions") as span:
+                span.set_attribute("query.dimensions", dimensions)
+                print(f"1. Select Dimensions: {dimensions}")
+                for dim in dimensions:
+                    _validate_identifier(dim, 'dimension')
+                    ident = psql.Identifier(dim)
+                    select_parts.append(ident)
+                    group_by_parts.append(ident)
+                    aliases.append(dim)
+
+            # --- metrics ---
+            with tracer.start_as_current_span("sql_builder.metrics") as span:
+                span.set_attribute("query.metrics", [str(m) for m in metrics])
+                metric_summaries = []
+                for metric in metrics:
+                    col = metric.get('column', '')
+                    agg = metric.get('aggregate', '').upper()
+                    alias = metric.get('alias', '')
+
+                    _validate_identifier(col, 'metric column')
+                    if alias:
+                        _validate_identifier(alias, 'metric alias')
+                    else:
+                        alias = f"{agg.lower()}_{col}"
+
+                    if agg == 'COUNT_DISTINCT':
+                        agg = 'COUNTUNIQUE'
+                    elif agg == 'AVG':
+                        agg = 'AVERAGE'
+
+                    if agg not in ALLOWED_AGGREGATES:
+                        raise ValueError(
+                            f"Aggregate '{agg}' is not allowed. "
+                            f"Allowed: {', '.join(sorted(ALLOWED_AGGREGATES))}"
+                        )
+
+                    metric_summaries.append(f"{agg}({col}) AS {alias}")
+
+                    col_ident = psql.Identifier(col)
+                    alias_ident = psql.Identifier(alias)
+
+                    if agg == 'COUNTUNIQUE':
+                        expr = psql.SQL('COUNT(DISTINCT {}) AS {}').format(col_ident, alias_ident)
+                    elif agg == 'COUNTA':
+                        expr = psql.SQL('COUNT({}) AS {}').format(col_ident, alias_ident)
+                    elif agg == 'COUNT':
+                        expr = psql.SQL("SUM(CASE WHEN {} IS NOT NULL AND {}::text ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN 1 ELSE 0 END) AS {}").format(col_ident, col_ident, alias_ident)
+                    elif agg == 'AVERAGE':
+                        expr = psql.SQL('AVG({}) AS {}').format(col_ident, alias_ident)
+                    elif agg == 'MEDIAN':
+                        expr = psql.SQL('PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {}) AS {}').format(col_ident, alias_ident)
+                    elif agg == 'PRODUCT':
+                        expr = psql.SQL('EXP(SUM(LN(NULLIF({}, 0)))) AS {}').format(col_ident, alias_ident)
+                    elif agg == 'STDEV':
+                        expr = psql.SQL('STDDEV_SAMP({}) AS {}').format(col_ident, alias_ident)
+                    elif agg == 'STDEVP':
+                        expr = psql.SQL('STDDEV_POP({}) AS {}').format(col_ident, alias_ident)
+                    elif agg == 'VAR':
+                        expr = psql.SQL('VAR_SAMP({}) AS {}').format(col_ident, alias_ident)
+                    elif agg == 'VARP':
+                        expr = psql.SQL('VAR_POP({}) AS {}').format(col_ident, alias_ident)
+                    else:
+                        agg_sql = psql.SQL(agg)
+                        expr = psql.SQL('{}({}) AS {}').format(agg_sql, col_ident, alias_ident)
+
+                    select_parts.append(expr)
+                    aliases.append(alias)
+                print(f"2. Select Metrics: {metric_summaries}")
+
+            # --- build subquery over raw limited matching rows ---
+            with tracer.start_as_current_span("sql_builder.subquery_base") as span:
+                subquery = psql.SQL('SELECT * FROM {}').format(psql.Identifier(table_name))
+                span.set_attribute("query.subquery_base", f"SELECT * FROM {table_name}")
+                print(f"3. Base subquery FROM: {table_name}")
+
+            params = []
+            if filters:
+                with tracer.start_as_current_span("sql_builder.filters") as span:
+                    span.set_attribute("query.filters", [str(f) for f in filters])
+                    print(f"4. Filters (WHERE): {filters}")
+                    where_parts = []
+                    for f in filters:
+                        f_col = f.get('column', '')
+                        f_op = f.get('operator', '').upper()
+                        f_val = f.get('value', '')
+
+                        _validate_identifier(f_col, 'filter column')
+                        if f_op not in ALLOWED_OPERATORS:
+                            raise ValueError(
+                                f"Filter operator '{f_op}' is not allowed. "
+                                f"Allowed: {', '.join(sorted(ALLOWED_OPERATORS))}"
+                            )
+
+                        col_ident = psql.Identifier(f_col)
+
+                        if f_op in ('IS NULL', 'IS NOT NULL'):
+                            where_parts.append(
+                                psql.SQL('{} {}').format(col_ident, psql.SQL(f_op))
+                            )
+                        elif f_op in ('IN', 'NOT IN'):
+                            values = [v.strip() for v in str(f_val).split(',') if v.strip()]
+                            if not values:
+                                raise ValueError(f"IN / NOT IN filter for '{f_col}' requires at least one value.")
+                            placeholders = psql.SQL(', ').join([psql.Placeholder()] * len(values))
+                            where_parts.append(
+                                psql.SQL('{} {} ({})').format(col_ident, psql.SQL(f_op), placeholders)
+                            )
+                            params.extend(values)
+                        else:
+                            where_parts.append(
+                                psql.SQL('{} {} {}').format(col_ident, psql.SQL(f_op), psql.Placeholder())
+                            )
+                            params.append(f_val)
+
+                    subquery = psql.SQL('{} WHERE {}').format(
+                        subquery,
+                        psql.SQL(' AND ').join(where_parts),
+                    )
             else:
-                alias = f"{agg.lower()}_{col}"
+                print("4. Filters (WHERE): None")
 
-            if agg == 'COUNT_DISTINCT':
-                agg = 'COUNTUNIQUE'
-            elif agg == 'AVG':
-                agg = 'AVERAGE'
+            # Apply Row Limit to the raw dataset subquery
+            if row_limit is not None:
+                with tracer.start_as_current_span("sql_builder.row_limit") as span:
+                    span.set_attribute("query.row_limit", row_limit)
+                    print(f"5. Apply subquery Row Limit: {row_limit}")
+                    subquery = psql.SQL('{} LIMIT {}').format(subquery, psql.Literal(row_limit))
+            else:
+                print("5. Apply subquery Row Limit: None")
 
-            if agg not in ALLOWED_AGGREGATES:
-                raise ValueError(
-                    f"Aggregate '{agg}' is not allowed. "
-                    f"Allowed: {', '.join(sorted(ALLOWED_AGGREGATES))}"
+            # --- main query over limited raw dataset ---
+            with tracer.start_as_current_span("sql_builder.finalize") as span:
+                query = psql.SQL('SELECT {fields} FROM ({sub}) AS raw_limited').format(
+                    fields=psql.SQL(', ').join(select_parts),
+                    sub=subquery,
                 )
+                print("6. Main SELECT statement assembled over subquery raw_limited")
 
-            col_ident = psql.Identifier(col)
-            alias_ident = psql.Identifier(alias)
-
-            if agg == 'COUNTUNIQUE':
-                expr = psql.SQL('COUNT(DISTINCT {}) AS {}').format(col_ident, alias_ident)
-            elif agg == 'COUNTA':
-                expr = psql.SQL('COUNT({}) AS {}').format(col_ident, alias_ident)
-            elif agg == 'COUNT':
-                expr = psql.SQL("SUM(CASE WHEN {} IS NOT NULL AND {}::text ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN 1 ELSE 0 END) AS {}").format(col_ident, col_ident, alias_ident)
-            elif agg == 'AVERAGE':
-                expr = psql.SQL('AVG({}) AS {}').format(col_ident, alias_ident)
-            elif agg == 'MEDIAN':
-                expr = psql.SQL('PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {}) AS {}').format(col_ident, alias_ident)
-            elif agg == 'PRODUCT':
-                expr = psql.SQL('EXP(SUM(LN(NULLIF({}, 0)))) AS {}').format(col_ident, alias_ident)
-            elif agg == 'STDEV':
-                expr = psql.SQL('STDDEV_SAMP({}) AS {}').format(col_ident, alias_ident)
-            elif agg == 'STDEVP':
-                expr = psql.SQL('STDDEV_POP({}) AS {}').format(col_ident, alias_ident)
-            elif agg == 'VAR':
-                expr = psql.SQL('VAR_SAMP({}) AS {}').format(col_ident, alias_ident)
-            elif agg == 'VARP':
-                expr = psql.SQL('VAR_POP({}) AS {}').format(col_ident, alias_ident)
+            # --- GROUP BY ---
+            if group_by_parts:
+                with tracer.start_as_current_span("sql_builder.group_by") as span:
+                    span.set_attribute("query.group_by", dimensions)
+                    print(f"7. GROUP BY fields: {dimensions}")
+                    query = psql.SQL('{} GROUP BY {}').format(
+                        query,
+                        psql.SQL(', ').join(group_by_parts),
+                    )
             else:
-                agg_sql = psql.SQL(agg)
-                expr = psql.SQL('{}({}) AS {}').format(agg_sql, col_ident, alias_ident)
+                print("7. GROUP BY fields: None")
 
-            select_parts.append(expr)
-            aliases.append(alias)
-
-        # --- build subquery over raw limited matching rows ---
-        subquery = psql.SQL('SELECT * FROM {}').format(psql.Identifier(table_name))
-        params = []
-        if filters:
-            where_parts = []
-            for f in filters:
-                f_col = f.get('column', '')
-                f_op = f.get('operator', '').upper()
-                f_val = f.get('value', '')
-
-                _validate_identifier(f_col, 'filter column')
-                if f_op not in ALLOWED_OPERATORS:
-                    raise ValueError(
-                        f"Filter operator '{f_op}' is not allowed. "
-                        f"Allowed: {', '.join(sorted(ALLOWED_OPERATORS))}"
-                    )
-
-                col_ident = psql.Identifier(f_col)
-
-                if f_op in ('IS NULL', 'IS NOT NULL'):
-                    where_parts.append(
-                        psql.SQL('{} {}').format(col_ident, psql.SQL(f_op))
-                    )
-                elif f_op in ('IN', 'NOT IN'):
-                    values = [v.strip() for v in str(f_val).split(',') if v.strip()]
-                    if not values:
-                        raise ValueError(f"IN / NOT IN filter for '{f_col}' requires at least one value.")
-                    placeholders = psql.SQL(', ').join([psql.Placeholder()] * len(values))
-                    where_parts.append(
-                        psql.SQL('{} {} ({})').format(col_ident, psql.SQL(f_op), placeholders)
-                    )
-                    params.extend(values)
-                else:
-                    where_parts.append(
-                        psql.SQL('{} {} {}').format(col_ident, psql.SQL(f_op), psql.Placeholder())
-                    )
-                    params.append(f_val)
-
-            subquery = psql.SQL('{} WHERE {}').format(
-                subquery,
-                psql.SQL(' AND ').join(where_parts),
-            )
-
-        # Apply Row Limit to the raw dataset subquery
-        if row_limit is not None:
-            subquery = psql.SQL('{} LIMIT {}').format(subquery, psql.Literal(row_limit))
-
-        # --- main query over limited raw dataset ---
-        query = psql.SQL('SELECT {fields} FROM ({sub}) AS raw_limited').format(
-            fields=psql.SQL(', ').join(select_parts),
-            sub=subquery,
-        )
-
-        # --- GROUP BY ---
-        if group_by_parts:
-            query = psql.SQL('{} GROUP BY {}').format(
-                query,
-                psql.SQL(', ').join(group_by_parts),
-            )
-
-        return query, params, aliases
+            print("--- [POSTGRES SINGLE-TABLE SQL QUERY BUILD END] ---\n")
+            return query, params, aliases
 
     # ------------------------------------------------------------------
     # CSV query description (for super-admin query inspector)
@@ -1394,200 +1433,244 @@ class DataAdapterQueryView(APIView):
         Build a multi-table JOIN query from the exploration payload.
         Returns (query: sql.Composed, params: list, aliases: list).
         """
-        table_name = payload.get('table_name', '')
-        joins = payload.get('joins', [])
-        dimensions = payload.get('dimensions', [])
-        metrics = payload.get('metrics', [])
-        filters = payload.get('filters', [])
-        row_limit = payload.get('row_limit')
-        if row_limit is not None:
-            try:
-                row_limit = min(int(row_limit), MAX_ROW_LIMIT)
-            except (ValueError, TypeError):
-                row_limit = None
+        from opentelemetry import trace
+        tracer = trace.get_tracer("klex.dataadapter")
 
-        if not table_name:
-            raise ValueError('table_name is required.')
-        _validate_identifier(table_name, 'table_name')
+        with tracer.start_as_current_span("build_safe_join_query") as main_span:
+            table_name = payload.get('table_name', '')
+            joins = payload.get('joins', [])
+            dimensions = payload.get('dimensions', [])
+            metrics = payload.get('metrics', [])
+            filters = payload.get('filters', [])
+            row_limit = payload.get('row_limit')
+            if row_limit is not None:
+                try:
+                    row_limit = min(int(row_limit), MAX_ROW_LIMIT)
+                except (ValueError, TypeError):
+                    row_limit = None
 
-        if not dimensions and not metrics:
-            raise ValueError('At least one dimension or metric is required.')
+            if not table_name:
+                raise ValueError('table_name is required.')
+            _validate_identifier(table_name, 'table_name')
 
-        # Validate joins
-        for j in joins:
-            j_table = j.get('table', '')
-            j_type = j.get('type', '').upper()
-            j_on = j.get('on', {})
-            _validate_identifier(j_table, 'join table')
-            if j_type not in self.ALLOWED_JOIN_TYPES:
-                raise ValueError(
-                    f"Join type '{j_type}' is not allowed. "
-                    f"Allowed: {', '.join(sorted(self.ALLOWED_JOIN_TYPES))}"
-                )
-            _validate_identifier(j_on.get('left_column', ''), 'join left column')
-            _validate_identifier(j_on.get('right_column', ''), 'join right column')
-            left_table = j_on.get('left_table', table_name)
-            _validate_identifier(left_table, 'join left table')
+            if not dimensions and not metrics:
+                raise ValueError('At least one dimension or metric is required.')
 
-        # Helper: resolve table.column notation
-        def resolve_column(col_str, default_table):
-            """Parse 'table.column' or plain 'column' into (table, column)."""
-            if '.' in col_str:
-                parts = col_str.split('.', 1)
-                _validate_identifier(parts[0], 'table reference')
-                _validate_identifier(parts[1], 'column reference')
-                return parts[0], parts[1]
-            _validate_identifier(col_str, 'column')
-            return default_table, col_str
+            print("\n--- [POSTGRES MULTI-TABLE SQL QUERY BUILD START] ---")
+            print(f"Base Table: {table_name}")
+            main_span.set_attribute("query.table_name", table_name)
 
-        select_parts = []
-        group_by_parts = []
-        aliases = []
+            # Validate and Log joins configuration
+            with tracer.start_as_current_span("sql_builder.joins_validation") as span:
+                span.set_attribute("query.joins", [str(j) for j in joins])
+                print("1. Configuring & Validating Joins:")
+                for j in joins:
+                    j_table = j.get('table', '')
+                    j_type = j.get('type', '').upper()
+                    j_on = j.get('on', {})
+                    _validate_identifier(j_table, 'join table')
+                    if j_type not in self.ALLOWED_JOIN_TYPES:
+                        raise ValueError(
+                            f"Join type '{j_type}' is not allowed. "
+                            f"Allowed: {', '.join(sorted(self.ALLOWED_JOIN_TYPES))}"
+                        )
+                    _validate_identifier(j_on.get('left_column', ''), 'join left column')
+                    _validate_identifier(j_on.get('right_column', ''), 'join right column')
+                    left_table = j_on.get('left_table', table_name)
+                    _validate_identifier(left_table, 'join left table')
+                    print(f"   - Join: {j_type} JOIN {j_table} ON {left_table}.{j_on.get('left_column')} = {j_table}.{j_on.get('right_column')}")
 
-        # --- dimensions ---
-        for dim in dimensions:
-            tbl, col = resolve_column(dim, table_name)
-            qualified = psql.SQL('{}.{}').format(psql.Identifier(tbl), psql.Identifier(col))
-            # Alias as "table_column" to avoid ambiguity
-            alias_name = f"{tbl}_{col}" if '.' in dim else col
-            select_parts.append(psql.SQL('{} AS {}').format(qualified, psql.Identifier(alias_name)))
-            group_by_parts.append(qualified)
-            aliases.append(alias_name)
+            # Helper: resolve table.column notation
+            def resolve_column(col_str, default_table):
+                """Parse 'table.column' or plain 'column' into (table, column)."""
+                if '.' in col_str:
+                    parts = col_str.split('.', 1)
+                    _validate_identifier(parts[0], 'table reference')
+                    _validate_identifier(parts[1], 'column reference')
+                    return parts[0], parts[1]
+                _validate_identifier(col_str, 'column')
+                return default_table, col_str
 
-        # --- metrics ---
-        for metric in metrics:
-            col_str = metric.get('column', '')
-            agg = metric.get('aggregate', '').upper()
-            alias = metric.get('alias', '')
+            select_parts = []
+            group_by_parts = []
+            aliases = []
 
-            tbl, col = resolve_column(col_str, table_name)
+            # --- dimensions ---
+            with tracer.start_as_current_span("sql_builder.dimensions") as span:
+                span.set_attribute("query.dimensions", dimensions)
+                print(f"2. Select Dimensions: {dimensions}")
+                for dim in dimensions:
+                    tbl, col = resolve_column(dim, table_name)
+                    qualified = psql.SQL('{}.{}').format(psql.Identifier(tbl), psql.Identifier(col))
+                    # Alias as "table_column" to avoid ambiguity
+                    alias_name = f"{tbl}_{col}" if '.' in dim else col
+                    select_parts.append(psql.SQL('{} AS {}').format(qualified, psql.Identifier(alias_name)))
+                    group_by_parts.append(qualified)
+                    aliases.append(alias_name)
 
-            if not alias:
-                alias = f"{agg.lower()}_{col}"
-            _validate_identifier(alias, 'metric alias')
+            # --- metrics ---
+            with tracer.start_as_current_span("sql_builder.metrics") as span:
+                span.set_attribute("query.metrics", [str(m) for m in metrics])
+                metric_summaries = []
+                for metric in metrics:
+                    col_str = metric.get('column', '')
+                    agg = metric.get('aggregate', '').upper()
+                    alias = metric.get('alias', '')
 
-            if agg == 'COUNT_DISTINCT':
-                agg = 'COUNTUNIQUE'
-            elif agg == 'AVG':
-                agg = 'AVERAGE'
+                    tbl, col = resolve_column(col_str, table_name)
 
-            if agg not in ALLOWED_AGGREGATES:
-                raise ValueError(
-                    f"Aggregate '{agg}' is not allowed. "
-                    f"Allowed: {', '.join(sorted(ALLOWED_AGGREGATES))}"
-                )
+                    if not alias:
+                        alias = f"{agg.lower()}_{col}"
+                    _validate_identifier(alias, 'metric alias')
 
-            qualified_col = psql.SQL('{}.{}').format(psql.Identifier(tbl), psql.Identifier(col))
-            alias_ident = psql.Identifier(alias)
+                    if agg == 'COUNT_DISTINCT':
+                        agg = 'COUNTUNIQUE'
+                    elif agg == 'AVG':
+                        agg = 'AVERAGE'
 
-            if agg == 'COUNTUNIQUE':
-                expr = psql.SQL('COUNT(DISTINCT {}) AS {}').format(qualified_col, alias_ident)
-            elif agg == 'COUNTA':
-                expr = psql.SQL('COUNT({}) AS {}').format(qualified_col, alias_ident)
-            elif agg == 'COUNT':
-                expr = psql.SQL("SUM(CASE WHEN {} IS NOT NULL AND {}::text ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN 1 ELSE 0 END) AS {}").format(qualified_col, qualified_col, alias_ident)
-            elif agg == 'AVERAGE':
-                expr = psql.SQL('AVG({}) AS {}').format(qualified_col, alias_ident)
-            elif agg == 'MEDIAN':
-                expr = psql.SQL('PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {}) AS {}').format(qualified_col, alias_ident)
-            elif agg == 'PRODUCT':
-                expr = psql.SQL('EXP(SUM(LN(NULLIF({}, 0)))) AS {}').format(qualified_col, alias_ident)
-            elif agg == 'STDEV':
-                expr = psql.SQL('STDDEV_SAMP({}) AS {}').format(qualified_col, alias_ident)
-            elif agg == 'STDEVP':
-                expr = psql.SQL('STDDEV_POP({}) AS {}').format(qualified_col, alias_ident)
-            elif agg == 'VAR':
-                expr = psql.SQL('VAR_SAMP({}) AS {}').format(qualified_col, alias_ident)
-            elif agg == 'VARP':
-                expr = psql.SQL('VAR_POP({}) AS {}').format(qualified_col, alias_ident)
+                    if agg not in ALLOWED_AGGREGATES:
+                        raise ValueError(
+                            f"Aggregate '{agg}' is not allowed. "
+                            f"Allowed: {', '.join(sorted(ALLOWED_AGGREGATES))}"
+                        )
+
+                    metric_summaries.append(f"{agg}({tbl}.{col}) AS {alias}")
+
+                    qualified_col = psql.SQL('{}.{}').format(psql.Identifier(tbl), psql.Identifier(col))
+                    alias_ident = psql.Identifier(alias)
+
+                    if agg == 'COUNTUNIQUE':
+                        expr = psql.SQL('COUNT(DISTINCT {}) AS {}').format(qualified_col, alias_ident)
+                    elif agg == 'COUNTA':
+                        expr = psql.SQL('COUNT({}) AS {}').format(qualified_col, alias_ident)
+                    elif agg == 'COUNT':
+                        expr = psql.SQL("SUM(CASE WHEN {} IS NOT NULL AND {}::text ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN 1 ELSE 0 END) AS {}").format(qualified_col, qualified_col, alias_ident)
+                    elif agg == 'AVERAGE':
+                        expr = psql.SQL('AVG({}) AS {}').format(qualified_col, alias_ident)
+                    elif agg == 'MEDIAN':
+                        expr = psql.SQL('PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {}) AS {}').format(qualified_col, alias_ident)
+                    elif agg == 'PRODUCT':
+                        expr = psql.SQL('EXP(SUM(LN(NULLIF({}, 0)))) AS {}').format(qualified_col, alias_ident)
+                    elif agg == 'STDEV':
+                        expr = psql.SQL('STDDEV_SAMP({}) AS {}').format(qualified_col, alias_ident)
+                    elif agg == 'STDEVP':
+                        expr = psql.SQL('STDDEV_POP({}) AS {}').format(qualified_col, alias_ident)
+                    elif agg == 'VAR':
+                        expr = psql.SQL('VAR_SAMP({}) AS {}').format(qualified_col, alias_ident)
+                    elif agg == 'VARP':
+                        expr = psql.SQL('VAR_POP({}) AS {}').format(qualified_col, alias_ident)
+                    else:
+                        agg_sql = psql.SQL(agg)
+                        expr = psql.SQL('{}({}) AS {}').format(agg_sql, qualified_col, alias_ident)
+
+                    select_parts.append(expr)
+                    aliases.append(alias)
+                print(f"3. Select Metrics: {metric_summaries}")
+
+            # --- FROM + JOINs ---
+            with tracer.start_as_current_span("sql_builder.from_clause") as span:
+                from_clause = psql.Identifier(table_name)
+                print(f"4. Assembling FROM & JOINs clauses starting with table: {table_name}")
+                for j in joins:
+                    j_table = j.get('table')
+                    j_type = j.get('type', 'INNER').upper()
+                    j_on = j.get('on', {})
+                    left_table = j_on.get('left_table', table_name)
+                    left_col = j_on.get('left_column')
+                    right_col = j_on.get('right_column')
+
+                    from_clause = psql.SQL('{} {} JOIN {} ON {}.{} = {}.{}').format(
+                        from_clause,
+                        psql.SQL(j_type),
+                        psql.Identifier(j_table),
+                        psql.Identifier(left_table),
+                        psql.Identifier(left_col),
+                        psql.Identifier(j_table),
+                        psql.Identifier(right_col),
+                    )
+
+            # --- Wrap in subquery with optional row limit ---
+            with tracer.start_as_current_span("sql_builder.subquery_base") as span:
+                subquery = psql.SQL('SELECT * FROM {}').format(from_clause)
+                print("5. Base JOIN SELECT built")
+
+            params = []
+
+            # --- WHERE ---
+            if filters:
+                with tracer.start_as_current_span("sql_builder.filters") as span:
+                    span.set_attribute("query.filters", [str(f) for f in filters])
+                    print(f"6. Filters (WHERE): {filters}")
+                    where_parts = []
+                    for f in filters:
+                        f_col_str = f.get('column', '')
+                        f_op = f.get('operator', '').upper()
+                        f_val = f.get('value', '')
+
+                        tbl, f_col = resolve_column(f_col_str, table_name)
+                        if f_op not in ALLOWED_OPERATORS:
+                            raise ValueError(
+                                f"Filter operator '{f_op}' is not allowed. "
+                                f"Allowed: {', '.join(sorted(ALLOWED_OPERATORS))}"
+                            )
+
+                        qualified_col = psql.SQL('{}.{}').format(psql.Identifier(tbl), psql.Identifier(f_col))
+
+                        if f_op in ('IS NULL', 'IS NOT NULL'):
+                            where_parts.append(
+                                psql.SQL('{} {}').format(qualified_col, psql.SQL(f_op))
+                            )
+                        elif f_op in ('IN', 'NOT IN'):
+                            values = [v.strip() for v in str(f_val).split(',') if v.strip()]
+                            if not values:
+                                raise ValueError(f"IN / NOT IN filter for '{f_col_str}' requires at least one value.")
+                            placeholders = psql.SQL(', ').join([psql.Placeholder()] * len(values))
+                            where_parts.append(
+                                psql.SQL('{} {} ({})').format(qualified_col, psql.SQL(f_op), placeholders)
+                            )
+                            params.extend(values)
+                        else:
+                            where_parts.append(
+                                psql.SQL('{} {} {}').format(qualified_col, psql.SQL(f_op), psql.Placeholder())
+                            )
+                            params.append(f_val)
+
+                    subquery = psql.SQL('{} WHERE {}').format(
+                        subquery,
+                        psql.SQL(' AND ').join(where_parts),
+                    )
             else:
-                agg_sql = psql.SQL(agg)
-                expr = psql.SQL('{}({}) AS {}').format(agg_sql, qualified_col, alias_ident)
+                print("6. Filters (WHERE): None")
 
-            select_parts.append(expr)
-            aliases.append(alias)
+            if row_limit is not None:
+                with tracer.start_as_current_span("sql_builder.row_limit") as span:
+                    span.set_attribute("query.row_limit", row_limit)
+                    print(f"7. Apply subquery Row Limit: {row_limit}")
+                    subquery = psql.SQL('{} LIMIT {}').format(subquery, psql.Literal(row_limit))
+            else:
+                print("7. Apply subquery Row Limit: None")
 
-        # --- FROM + JOINs ---
-        from_clause = psql.Identifier(table_name)
-        for j in joins:
-            j_table = j.get('table')
-            j_type = j.get('type', 'INNER').upper()
-            j_on = j.get('on', {})
-            left_table = j_on.get('left_table', table_name)
-            left_col = j_on.get('left_column')
-            right_col = j_on.get('right_column')
+            # --- main query ---
+            with tracer.start_as_current_span("sql_builder.finalize") as span:
+                query = psql.SQL('SELECT {fields} FROM ({sub}) AS raw_limited').format(
+                    fields=psql.SQL(', ').join(select_parts),
+                    sub=subquery,
+                )
+                print("8. Main SELECT statement assembled over subquery raw_limited")
 
-            from_clause = psql.SQL('{} {} JOIN {} ON {}.{} = {}.{}').format(
-                from_clause,
-                psql.SQL(j_type),
-                psql.Identifier(j_table),
-                psql.Identifier(left_table),
-                psql.Identifier(left_col),
-                psql.Identifier(j_table),
-                psql.Identifier(right_col),
-            )
-
-        # --- Wrap in subquery with optional row limit ---
-        subquery = psql.SQL('SELECT * FROM {}').format(from_clause)
-        params = []
-
-        # --- WHERE ---
-        if filters:
-            where_parts = []
-            for f in filters:
-                f_col_str = f.get('column', '')
-                f_op = f.get('operator', '').upper()
-                f_val = f.get('value', '')
-
-                tbl, f_col = resolve_column(f_col_str, table_name)
-                if f_op not in ALLOWED_OPERATORS:
-                    raise ValueError(
-                        f"Filter operator '{f_op}' is not allowed. "
-                        f"Allowed: {', '.join(sorted(ALLOWED_OPERATORS))}"
+            if group_by_parts:
+                with tracer.start_as_current_span("sql_builder.group_by") as span:
+                    span.set_attribute("query.group_by", dimensions)
+                    print(f"9. GROUP BY fields: {dimensions}")
+                    query = psql.SQL('{} GROUP BY {}').format(
+                        query,
+                        psql.SQL(', ').join(group_by_parts),
                     )
+            else:
+                print("9. GROUP BY fields: None")
 
-                qualified_col = psql.SQL('{}.{}').format(psql.Identifier(tbl), psql.Identifier(f_col))
-
-                if f_op in ('IS NULL', 'IS NOT NULL'):
-                    where_parts.append(
-                        psql.SQL('{} {}').format(qualified_col, psql.SQL(f_op))
-                    )
-                elif f_op in ('IN', 'NOT IN'):
-                    values = [v.strip() for v in str(f_val).split(',') if v.strip()]
-                    if not values:
-                        raise ValueError(f"IN / NOT IN filter for '{f_col_str}' requires at least one value.")
-                    placeholders = psql.SQL(', ').join([psql.Placeholder()] * len(values))
-                    where_parts.append(
-                        psql.SQL('{} {} ({})').format(qualified_col, psql.SQL(f_op), placeholders)
-                    )
-                    params.extend(values)
-                else:
-                    where_parts.append(
-                        psql.SQL('{} {} {}').format(qualified_col, psql.SQL(f_op), psql.Placeholder())
-                    )
-                    params.append(f_val)
-
-            subquery = psql.SQL('{} WHERE {}').format(
-                subquery,
-                psql.SQL(' AND ').join(where_parts),
-            )
-
-        if row_limit is not None:
-            subquery = psql.SQL('{} LIMIT {}').format(subquery, psql.Literal(row_limit))
-
-        # --- main query ---
-        query = psql.SQL('SELECT {fields} FROM ({sub}) AS raw_limited').format(
-            fields=psql.SQL(', ').join(select_parts),
-            sub=subquery,
-        )
-
-        if group_by_parts:
-            query = psql.SQL('{} GROUP BY {}').format(
-                query,
-                psql.SQL(', ').join(group_by_parts),
-            )
-
-        return query, params, aliases
+            print("--- [POSTGRES MULTI-TABLE SQL QUERY BUILD END] ---\n")
+            return query, params, aliases
 
 
 class DataAdapterMultiColumnsView(APIView):
