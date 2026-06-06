@@ -1,19 +1,29 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { dataAdaptersApi } from '../api';
-import type { DataAdapter, TableColumn, PivotFieldConfig, ExplorationQuery, FilterConfig, AggregateType, ShowAsMode, ConditionalFormatRule } from '../types';
-import { buildPivotModel, formatPivotValue, pivotToCSV } from '../utils/pivotEngine';
+import type { DataAdapter, TableColumn, PivotFieldConfig, ExplorationQuery, FilterConfig, AggregateType, ShowAsMode, ConditionalFormatRule, JoinConfig, ExplorationResult } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { buildPivotModel, formatPivotValue, pivotToCSV, pivotTo2DArray, getValueLabel } from '../utils/pivotEngine';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { computeZScores, getCellColor } from '../utils/statsEngine';
 import ZScorePanel from '../components/ZScorePanel';
+import Modal from '../components/Modal';
 
 const AVAILABLE_AGGREGATES: { label: string; value: AggregateType }[] = [
     { label: 'Sum', value: 'SUM' },
-    { label: 'Average', value: 'AVG' },
+    { label: 'Average', value: 'AVERAGE' },
     { label: 'Count', value: 'COUNT' },
-    { label: 'Distinct Count', value: 'COUNT_DISTINCT' },
+    { label: 'Count (All)', value: 'COUNTA' },
+    { label: 'Distinct Count', value: 'COUNTUNIQUE' },
     { label: 'Min', value: 'MIN' },
     { label: 'Max', value: 'MAX' },
     { label: 'Median', value: 'MEDIAN' },
     { label: 'Product', value: 'PRODUCT' },
+    { label: 'Std Dev (Sample)', value: 'STDEV' },
+    { label: 'Std Dev (Pop)', value: 'STDEVP' },
+    { label: 'Variance (Sample)', value: 'VAR' },
+    { label: 'Variance (Pop)', value: 'VARP' },
 ];
 
 const SHOW_AS_OPTIONS: { label: string; value: ShowAsMode }[] = [
@@ -41,6 +51,19 @@ function genId(): string {
     return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function getAllSubtotalKeys(data: Record<string, unknown>[], rowFields: PivotFieldConfig[]): Set<string> {
+    const keys = new Set<string>();
+    if (rowFields.length <= 1) return keys;
+    for (const row of data) {
+        const pathParts: string[] = [];
+        for (let i = 0; i < rowFields.length - 1; i++) {
+            pathParts.push(String(row[rowFields[i].fieldName] ?? '(empty)'));
+            keys.add(pathParts.join('||'));
+        }
+    }
+    return keys;
+}
+
 const LOCAL_STORAGE_KEY = 'klex_data_exploration_state';
 const SAVED_EXPLORATIONS_KEY = 'klex_saved_explorations';
 
@@ -51,8 +74,9 @@ interface SavedExploration {
     updatedAt: string;
     selectedAdapterId: number | '';
     selectedTable: string;
+    joins?: JoinConfig[];
     fields: PivotFieldConfig[];
-    rowLimit: number;
+    rowLimit: number | null;
     sortColumn: string | null;
     sortDirection: 'asc' | 'desc';
 }
@@ -63,8 +87,9 @@ interface PersistentState {
     explorationName: string;
     selectedAdapterId: number | '';
     selectedTable: string;
+    joins?: JoinConfig[];
     fields: PivotFieldConfig[];
-    rowLimit: number;
+    rowLimit: number | null;
     sortColumn: string | null;
     sortDirection: 'asc' | 'desc';
 }
@@ -116,6 +141,8 @@ export default function DataExploration() {
         }
     }, [savedExplorations]);
 
+    const { user } = useAuth();
+
     // Adapter selection
     const [adapters, setAdapters] = useState<DataAdapter[]>([]);
     const [selectedAdapterId, setSelectedAdapterId] = useState<number | ''>(
@@ -131,9 +158,14 @@ export default function DataExploration() {
     const [columns, setColumns] = useState<TableColumn[]>([]);
     const [loadingColumns, setLoadingColumns] = useState(false);
 
+    // Joins & Multi-table schema discovery
+    const [joins, setJoins] = useState<JoinConfig[]>(savedState.joins || []);
+    const [joinedTablesColumns, setJoinedTablesColumns] = useState<Record<string, TableColumn[]>>({});
+    const [showJoinBuilder, setShowJoinBuilder] = useState(false);
+
     // Pivot table builder configuration (multi-instance: same field can appear multiple times)
     const [fields, setFields] = useState<PivotFieldConfig[]>(savedState.fields || []);
-    const [rowLimit, setRowLimit] = useState<number>(savedState.rowLimit || 1000);
+    const [rowLimit, setRowLimit] = useState<number | null>(savedState.rowLimit !== undefined ? savedState.rowLimit : 1000);
 
     // Available fields search query
     const [searchQuery, setSearchQuery] = useState('');
@@ -156,25 +188,55 @@ export default function DataExploration() {
     // Query execution & results
     const [executing, setExecuting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [queryResult, setQueryResult] = useState<{
-        data: Record<string, unknown>[];
-        row_count: number;
-        columns: string[];
-        query_time_ms: number;
-    } | null>(null);
-    const [lastExecutedQueryStr, setLastExecutedQueryStr] = useState<string>('');
+    const [queryResult, setQueryResult] = useState<ExplorationResult | null>(null);
+    const [isQueryFromCache, setIsQueryFromCache] = useState(false);
+    const [isClientRePivoted, setIsClientRePivoted] = useState(false);
+    const [tempJoins, setTempJoins] = useState<JoinConfig[]>([]);
+    const [showQueryInspector, setShowQueryInspector] = useState(false);
+    const [lastExecutedQueryFingerprintStr, setLastExecutedQueryFingerprintStr] = useState<string>('');
 
     // Sort order for dimensions/columns
     const [sortColumn, setSortColumn] = useState<string | null>(savedState.sortColumn || null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(savedState.sortDirection || 'asc');
 
     const [hasAutoRun, setHasAutoRun] = useState(false);
+    const hasAutoRunRef = useRef(false);
 
     // Z-Score / conditional formatting
     const [showToolsMenu, setShowToolsMenu] = useState(false);
     const [showZScorePanel, setShowZScorePanel] = useState(false);
     const [conditionalFormatRule, setConditionalFormatRule] = useState<ConditionalFormatRule | null>(null);
     const toolsMenuRef = useRef<HTMLDivElement>(null);
+
+    const [showSortMenu, setShowSortMenu] = useState(false);
+    const sortMenuRef = useRef<HTMLDivElement>(null);
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+    const fetchedFieldsRef = useRef<Set<string>>(new Set());
+
+    // Close sort menu on outside click
+    useEffect(() => {
+        if (!showSortMenu) return;
+        const handleClick = (e: MouseEvent) => {
+            if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) {
+                setShowSortMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, [showSortMenu]);
+
+    // Close export menu on outside click
+    useEffect(() => {
+        if (!showExportMenu) return;
+        const handleClick = (e: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+                setShowExportMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, [showExportMenu]);
 
     // Save state to localStorage whenever it changes
     useEffect(() => {
@@ -185,6 +247,7 @@ export default function DataExploration() {
                 explorationName,
                 selectedAdapterId,
                 selectedTable,
+                joins,
                 fields,
                 rowLimit,
                 sortColumn,
@@ -194,7 +257,7 @@ export default function DataExploration() {
         } catch (e) {
             console.error('Failed to save state to localStorage', e);
         }
-    }, [activeView, activeExplorationId, explorationName, selectedAdapterId, selectedTable, fields, rowLimit, sortColumn, sortDirection]);
+    }, [activeView, activeExplorationId, explorationName, selectedAdapterId, selectedTable, joins, fields, rowLimit, sortColumn, sortDirection]);
 
     // Close tools menu on outside click
     useEffect(() => {
@@ -292,16 +355,73 @@ export default function DataExploration() {
             .finally(() => setLoadingColumns(false));
     }, [selectedAdapterId, selectedTable]);
 
+    // Fetch columns for joined tables
+    useEffect(() => {
+        if (!selectedAdapterId || joins.length === 0) {
+            setJoinedTablesColumns({});
+            return;
+        }
+        const tablesToFetch = Array.from(new Set(joins.map(j => j.table)));
+        dataAdaptersApi.getMultiColumns(selectedAdapterId, tablesToFetch)
+            .then(res => {
+                setJoinedTablesColumns(res.tables);
+            })
+            .catch(err => {
+                console.error(err);
+                setError('Failed to load columns for joined tables.');
+            });
+    }, [selectedAdapterId, joins]);
+
+    // Merged columns from primary table and joined tables
+    const allColumns = useMemo(() => {
+        const list: (TableColumn & { displayName: string; queryName: string; table: string })[] = [];
+        columns.forEach(col => {
+            list.push({
+                ...col,
+                displayName: joins.length > 0 ? `${selectedTable}.${col.name}` : col.name,
+                queryName: joins.length > 0 ? `${selectedTable}.${col.name}` : col.name,
+                table: selectedTable
+            });
+        });
+        joins.forEach(j => {
+            const cols = joinedTablesColumns[j.table] || [];
+            cols.forEach(col => {
+                const queryName = `${j.table}.${col.name}`;
+                if (!list.some(item => item.queryName === queryName)) {
+                    list.push({
+                        ...col,
+                        displayName: queryName,
+                        queryName: queryName,
+                        table: j.table
+                    });
+                }
+            });
+        });
+        return list;
+    }, [columns, joinedTablesColumns, joins, selectedTable]);
+
     // Available fields: filtered by search query
     const availableFields = useMemo(() => {
-        if (!searchQuery) return columns;
+        if (!searchQuery) return allColumns;
         const q = searchQuery.toLowerCase();
-        return columns.filter(col => col.name.toLowerCase().includes(q));
-    }, [columns, searchQuery]);
+        return allColumns.filter(col => col.displayName.toLowerCase().includes(q));
+    }, [allColumns, searchQuery]);
+
+    // Clear cache when table changes
+    useEffect(() => {
+        setDistinctValuesCache({});
+        fetchedFieldsRef.current.clear();
+        if (!isInitialLoadRef.current) {
+            setJoins([]);
+            setJoinedTablesColumns({});
+        }
+    }, [selectedAdapterId, selectedTable]);
 
     // Fetch distinct values for filter checklist
     const fetchDistinctValues = useCallback(async (fieldName: string) => {
         if (distinctValuesCache[fieldName] || !selectedAdapterId || !selectedTable) return;
+        if (fetchedFieldsRef.current.has(fieldName)) return;
+        fetchedFieldsRef.current.add(fieldName);
         try {
             const res = await dataAdaptersApi.getDistinctValues(
                 selectedAdapterId as number, selectedTable, fieldName
@@ -311,6 +431,19 @@ export default function DataExploration() {
             setDistinctValuesCache(prev => ({ ...prev, [fieldName]: [] }));
         }
     }, [selectedAdapterId, selectedTable, distinctValuesCache]);
+
+    // Fetch distinct values for any filters in 'values' mode automatically
+    useEffect(() => {
+        if (!selectedAdapterId || !selectedTable) return;
+        fields.forEach(f => {
+            if (f.area === 'filters' && f.filterMode === 'values') {
+                const key = f.fieldName;
+                if (!distinctValuesCache[key] && !fetchedFieldsRef.current.has(key)) {
+                    fetchDistinctValues(key);
+                }
+            }
+        });
+    }, [fields, selectedAdapterId, selectedTable, distinctValuesCache, fetchDistinctValues]);
 
     // Drag-and-Drop Handlers
     const handleDragStartFromAvailable = (fieldName: string) => {
@@ -340,7 +473,7 @@ export default function DataExploration() {
             if (!found) return;
             const updatedField: PivotFieldConfig = { ...found, area };
             if (area === 'values' && !found.aggregate) {
-                const colMeta = columns.find(c => c.name === found.fieldName);
+                const colMeta = allColumns.find(c => c.queryName === found.fieldName);
                 const isNumeric = colMeta ? (
                     colMeta.data_type.toLowerCase().includes('int') || 
                     colMeta.data_type.toLowerCase().includes('num') || 
@@ -371,7 +504,7 @@ export default function DataExploration() {
                 sortOrder: 'asc',
             };
             if (area === 'values') {
-                const colMeta = columns.find(c => c.name === draggedField);
+                const colMeta = allColumns.find(c => c.queryName === draggedField);
                 const isNumeric = colMeta ? (
                     colMeta.data_type.toLowerCase().includes('int') || 
                     colMeta.data_type.toLowerCase().includes('num') || 
@@ -411,7 +544,7 @@ export default function DataExploration() {
             if (!found) return;
             fieldToInsert = { ...found, area };
             if (area === 'values' && !fieldToInsert.aggregate) {
-                const colMeta = columns.find(c => c.name === fieldToInsert.fieldName);
+                const colMeta = allColumns.find(c => c.queryName === fieldToInsert.fieldName);
                 const isNumeric = colMeta ? (
                     colMeta.data_type.toLowerCase().includes('int') || 
                     colMeta.data_type.toLowerCase().includes('num') || 
@@ -438,7 +571,7 @@ export default function DataExploration() {
                 sortOrder: 'asc',
             };
             if (area === 'values') {
-                const colMeta = columns.find(c => c.name === draggedField);
+                const colMeta = allColumns.find(c => c.queryName === draggedField);
                 const isNumeric = colMeta ? (
                     colMeta.data_type.toLowerCase().includes('int') || 
                     colMeta.data_type.toLowerCase().includes('num') || 
@@ -521,7 +654,7 @@ export default function DataExploration() {
         const metrics = fields.filter(f => f.area === 'values').map(f => ({
             column: f.fieldName,
             aggregate: f.aggregate || 'SUM',
-            alias: f.alias || `sum_${f.fieldName}`,
+            alias: (f.alias || `${(f.aggregate || 'SUM').toLowerCase()}_${f.fieldName}`).replace(/\./g, '_'),
         }));
 
         // Compile filters from multi-instance fields
@@ -542,8 +675,29 @@ export default function DataExploration() {
             return [];
         });
 
+        // Compute fingerprint for client-side smart re-pivoting
+        const queryFingerprint = {
+            table_name: selectedTable,
+            joins: joins.length > 0 ? joins : undefined,
+            dimensions: [...dimensions].sort(),
+            metrics: [...metrics].sort((a, b) => a.alias.localeCompare(b.alias)),
+            filters: [...filters].sort((a, b) => a.column.localeCompare(b.column) || a.operator.localeCompare(b.operator) || a.value.localeCompare(b.value)),
+            row_limit: rowLimit,
+        };
+        const queryFingerprintStr = JSON.stringify(queryFingerprint);
+
+        // Client-side pivot cache hit check
+        if (queryResult && lastExecutedQueryFingerprintStr === queryFingerprintStr) {
+            console.log("Client-side smart re-pivot: reusing existing queryResult.data");
+            setIsClientRePivoted(true);
+            setIsQueryFromCache(false);
+            setExecuting(false);
+            return;
+        }
+
         const query: ExplorationQuery = {
             table_name: selectedTable,
+            joins: joins.length > 0 ? joins : undefined,
             dimensions,
             metrics,
             filters,
@@ -552,10 +706,47 @@ export default function DataExploration() {
 
         try {
             const result = await dataAdaptersApi.executeQuery(selectedAdapterId, query);
-            setQueryResult(result);
-            setLastExecutedQueryStr(JSON.stringify(query));
-            // Auto expand top level
-            setExpandedGroups(new Set());
+            
+            // Map keys in result data to handle dot-notation for joins
+            const mappedData = result.data.map(row => {
+                const newRow = { ...row };
+                if (joins.length > 0) {
+                    joins.forEach(j => {
+                        const cols = joinedTablesColumns[j.table] || [];
+                        cols.forEach(c => {
+                            const dbKey = `${j.table}_${c.name}`;
+                            const queryKey = `${j.table}.${c.name}`;
+                            if (dbKey in row) {
+                                newRow[queryKey] = row[dbKey];
+                            }
+                        });
+                    });
+                    columns.forEach(c => {
+                        const dbKeyPrefix = `${selectedTable}_${c.name}`;
+                        const queryKey = `${selectedTable}.${c.name}`;
+                        if (dbKeyPrefix in row) {
+                            newRow[queryKey] = row[dbKeyPrefix];
+                        } else if (c.name in row) {
+                            newRow[queryKey] = row[c.name];
+                        }
+                    });
+                }
+                return newRow;
+            });
+
+            const finalResult = {
+                ...result,
+                data: mappedData
+            };
+
+            setQueryResult(finalResult);
+            setLastExecutedQueryFingerprintStr(queryFingerprintStr);
+            setIsClientRePivoted(false);
+            setIsQueryFromCache(!!result.cache_hit);
+            // Auto expand all row groups by default
+            const rowFields = fields.filter(f => f.area === 'rows');
+            const allKeys = getAllSubtotalKeys(finalResult.data, rowFields);
+            setExpandedGroups(allKeys);
         } catch (err: any) {
             console.error(err);
             setError(err.response?.data?.error || 'Failed to execute query. Check database settings.');
@@ -566,11 +757,154 @@ export default function DataExploration() {
 
     // Auto-run query on initial load if we restored some fields
     useEffect(() => {
-        if (!loadingAdapters && !loadingTables && !loadingColumns && columns.length > 0 && fields.length > 0 && !hasAutoRun) {
+        if (!loadingAdapters && !loadingTables && !loadingColumns && columns.length > 0 && fields.length > 0 && !hasAutoRunRef.current && !hasAutoRun) {
+            hasAutoRunRef.current = true;
             setHasAutoRun(true);
             handleExecute();
         }
     }, [loadingAdapters, loadingTables, loadingColumns, columns, fields, hasAutoRun]);
+
+    // Sync field names with join state (prefix with table name if joins are present)
+    useEffect(() => {
+        setFields(prev => prev.map(f => {
+            if (joins.length > 0) {
+                if (!f.fieldName.includes('.')) {
+                    return {
+                        ...f,
+                        fieldName: `${selectedTable}.${f.fieldName}`,
+                        alias: f.alias ? (f.alias.includes('.') ? f.alias : `${selectedTable}_${f.fieldName}`) : undefined
+                    };
+                }
+            } else {
+                if (f.fieldName.includes('.')) {
+                    const parts = f.fieldName.split('.');
+                    if (parts[0] === selectedTable) {
+                        return {
+                            ...f,
+                            fieldName: parts[1],
+                            alias: f.alias ? f.alias.replace(`${selectedTable}_`, '') : undefined
+                        };
+                    }
+                }
+            }
+            return f;
+        }));
+    }, [joins.length, selectedTable]);
+
+    // Populate tempJoins state when Join Builder opens
+    useEffect(() => {
+        if (showJoinBuilder) {
+            setTempJoins(JSON.parse(JSON.stringify(joins)));
+        }
+    }, [showJoinBuilder, joins]);
+
+    // Fetch joined table columns dynamically
+    const fetchJoinedTableColumns = useCallback((tableName: string) => {
+        if (!selectedAdapterId || !tableName || joinedTablesColumns[tableName]) return;
+        dataAdaptersApi.getColumns(Number(selectedAdapterId), tableName)
+            .then(res => {
+                setJoinedTablesColumns(prev => ({
+                    ...prev,
+                    [tableName]: res.columns
+                }));
+            })
+            .catch(err => {
+                console.error(`Failed to fetch columns for table ${tableName}:`, err);
+            });
+    }, [selectedAdapterId, joinedTablesColumns]);
+
+    // Pre-fetch columns for any already joined tables when modal opens
+    useEffect(() => {
+        if (showJoinBuilder && tempJoins.length > 0) {
+            tempJoins.forEach(j => {
+                if (j.table) {
+                    fetchJoinedTableColumns(j.table);
+                }
+            });
+        }
+    }, [showJoinBuilder, tempJoins, fetchJoinedTableColumns]);
+
+    const getRightTablesForJoin = (index: number) => {
+        const selectedOthers = tempJoins
+            .filter((_, idx) => idx !== index)
+            .map(j => j.table)
+            .filter(Boolean);
+        return tables.filter(t => t !== selectedTable && !selectedOthers.includes(t));
+    };
+
+    const getLeftTablesForJoin = (index: number) => {
+        const list = [selectedTable];
+        for (let i = 0; i < index; i++) {
+            const t = tempJoins[i].table;
+            if (t && !list.includes(t)) {
+                list.push(t);
+            }
+        }
+        return list;
+    };
+
+    const handleRightTableChange = (index: number, newTable: string) => {
+        setTempJoins(prev => prev.map((j, i) => {
+            if (i !== index) return j;
+            return {
+                ...j,
+                table: newTable,
+                on: {
+                    ...j.on,
+                    right_column: ''
+                }
+            };
+        }));
+        if (newTable) {
+            fetchJoinedTableColumns(newTable);
+        }
+    };
+
+    const removeJoin = (index: number) => {
+        const tableToRemove = tempJoins[index].table;
+        let updated = tempJoins.filter((_, i) => i !== index);
+        // Clean up subsequent joins depending on the deleted table
+        updated = updated.map(j => {
+            if (j.on.left_table === tableToRemove) {
+                return {
+                    ...j,
+                    on: {
+                        ...j.on,
+                        left_table: selectedTable,
+                        left_column: '',
+                        right_column: ''
+                    }
+                };
+            }
+            return j;
+        });
+        setTempJoins(updated);
+    };
+
+    const handleSaveJoins = () => {
+        // Validate
+        for (const j of tempJoins) {
+            if (!j.table || !j.on.left_column || !j.on.right_column) {
+                setError("All joins must have a table and column mapping specified.");
+                return;
+            }
+        }
+
+        const activeTables = new Set(tempJoins.map(j => j.table));
+        activeTables.add(selectedTable);
+
+        // Clean up fields / filters referencing deleted tables
+        setFields(prev => prev.filter(f => {
+            if (f.fieldName.includes('.')) {
+                const tbl = f.fieldName.split('.')[0];
+                return activeTables.has(tbl);
+            }
+            return true;
+        }));
+
+        setJoins(tempJoins);
+        setShowJoinBuilder(false);
+    };
 
     // Dashboard navigation & sheet persistence actions
     const handleSaveExploration = (name?: string) => {
@@ -584,6 +918,7 @@ export default function DataExploration() {
                         updatedAt: new Date().toISOString(),
                         selectedAdapterId,
                         selectedTable,
+                        joins,
                         fields,
                         rowLimit,
                         sortColumn,
@@ -601,6 +936,7 @@ export default function DataExploration() {
                 updatedAt: new Date().toISOString(),
                 selectedAdapterId,
                 selectedTable,
+                joins,
                 fields,
                 rowLimit,
                 sortColumn,
@@ -630,7 +966,6 @@ export default function DataExploration() {
         setFields([]);
         setQueryResult(null);
         setError(null);
-        setLastExecutedQueryStr('');
         setSortColumn(null);
         setSortDirection('asc');
         if (adapters.length > 0) {
@@ -645,13 +980,13 @@ export default function DataExploration() {
         setExplorationName(exp.name);
         setSelectedAdapterId(exp.selectedAdapterId);
         setSelectedTable(exp.selectedTable);
+        setJoins(exp.joins || []);
         setFields(exp.fields);
         setRowLimit(exp.rowLimit);
         setSortColumn(exp.sortColumn);
         setSortDirection(exp.sortDirection);
         setQueryResult(null);
         setError(null);
-        setLastExecutedQueryStr('');
         setHasAutoRun(false);
         setActiveView('playground');
     };
@@ -667,7 +1002,7 @@ export default function DataExploration() {
         const metrics = fields.filter(f => f.area === 'values').map(f => ({
             column: f.fieldName,
             aggregate: f.aggregate || 'SUM',
-            alias: f.alias || `sum_${f.fieldName}`,
+            alias: (f.alias || `${(f.aggregate || 'SUM').toLowerCase()}_${f.fieldName}`).replace(/\./g, '_'),
         }));
 
         const filters = fields.filter(f => f.area === 'filters').flatMap(f => {
@@ -687,16 +1022,17 @@ export default function DataExploration() {
             return [];
         });
 
-        const currentQuery = {
+        const currentQueryFingerprint = {
             table_name: selectedTable,
-            dimensions,
-            metrics,
-            filters,
+            joins: joins.length > 0 ? joins : undefined,
+            dimensions: [...dimensions].sort(),
+            metrics: [...metrics].sort((a, b) => a.alias.localeCompare(b.alias)),
+            filters: [...filters].sort((a, b) => a.column.localeCompare(b.column) || a.operator.localeCompare(b.operator) || a.value.localeCompare(b.value)),
             row_limit: rowLimit,
         };
 
-        return JSON.stringify(currentQuery) !== lastExecutedQueryStr;
-    }, [queryResult, fields, selectedTable, rowLimit, lastExecutedQueryStr]);
+        return JSON.stringify(currentQueryFingerprint) !== lastExecutedQueryFingerprintStr;
+    }, [queryResult, fields, selectedTable, rowLimit, joins, lastExecutedQueryFingerprintStr]);
 
     // Reshape results using pivot engine
     const pivotModel = useMemo(() => {
@@ -712,11 +1048,26 @@ export default function DataExploration() {
 
     // Handle interactive table sort
     const handleSort = (column: string) => {
-        if (sortColumn === column) {
-            setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+        const rowFields = fields.filter(f => f.area === 'rows');
+        const isRowField = rowFields.some(rf => rf.fieldName === column);
+
+        if (isRowField) {
+            setFields(prev => prev.map(f => {
+                if (f.fieldName === column && f.area === 'rows') {
+                    const newSort = f.sortOrder === 'desc' ? 'asc' : 'desc';
+                    setSortColumn(column);
+                    setSortDirection(newSort);
+                    return { ...f, sortOrder: newSort };
+                }
+                return f;
+            }));
         } else {
-            setSortColumn(column);
-            setSortDirection('asc');
+            if (sortColumn === column) {
+                setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+            } else {
+                setSortColumn(column);
+                setSortDirection('asc');
+            }
         }
     };
 
@@ -740,7 +1091,7 @@ export default function DataExploration() {
             rowsMap.set(row.groupKey, row);
         }
 
-        const isRowFieldsSort = fields.some(f => f.fieldName === sortColumn);
+        const isRowFieldsSort = fields.some(f => f.fieldName === sortColumn && f.area === 'rows');
 
         return [...pivotModel.rows].sort((a, b) => {
             if (a.groupKey === b.groupKey) return 0;
@@ -759,7 +1110,7 @@ export default function DataExploration() {
 
             if (diffIdx === -1) {
                 // One is a prefix of the other (e.g. North vs North||Office)
-                // The parent (shorter path) always goes first
+                // The parent (shorter path) always goes first (at the top as group header)
                 return pathA.length - pathB.length;
             }
 
@@ -775,12 +1126,16 @@ export default function DataExploration() {
                 return pathA[diffIdx].localeCompare(pathB[diffIdx], undefined, { numeric: true });
             }
 
+            const rowFields = fields.filter(f => f.area === 'rows');
+            const fieldAtDiff = rowFields[diffIdx];
+
             // Compare by sortColumn
             if (isRowFieldsSort) {
                 // Sorting by a row dimension
+                const sortDir = (fieldAtDiff?.fieldName === sortColumn) ? sortDirection : (fieldAtDiff?.sortOrder || 'asc');
                 const valA = pathA[diffIdx];
                 const valB = pathB[diffIdx];
-                return sortDirection === 'asc'
+                return sortDir === 'asc'
                     ? valA.localeCompare(valB, undefined, { numeric: true })
                     : valB.localeCompare(valA, undefined, { numeric: true });
             } else {
@@ -792,24 +1147,166 @@ export default function DataExploration() {
                     return sortDirection === 'asc' ? valA - valB : valB - valA;
                 }
 
-                // Tie-breaker: alphabetical of the labels at diffIdx
-                return pathA[diffIdx].localeCompare(pathB[diffIdx], undefined, { numeric: true });
+                // Tie-breaker: sort direction configured for this level
+                const sortDir = fieldAtDiff?.sortOrder || 'asc';
+                const labelA = pathA[diffIdx];
+                const labelB = pathB[diffIdx];
+                return sortDir === 'asc'
+                    ? labelA.localeCompare(labelB, undefined, { numeric: true })
+                    : labelB.localeCompare(labelA, undefined, { numeric: true });
             }
         });
     }, [pivotModel, sortColumn, sortDirection, fields]);
 
-    const handleCSVExport = () => {
+    const handleExport = (format: 'csv' | 'xlsx' | 'xls' | 'pdf') => {
         if (!pivotModel) return;
-        const csvContent = pivotToCSV(pivotModel, fields.filter(f => f.area === 'rows'));
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `klex_pivot_${selectedTable || 'export'}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+
+        const rowFields = fields.filter(f => f.area === 'rows');
+        
+        if (format === 'csv') {
+            const csvContent = pivotToCSV(pivotModel, rowFields);
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `klex_pivot_${selectedTable || 'export'}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else if (format === 'xlsx' || format === 'xls') {
+            const data2D = pivotTo2DArray(pivotModel, rowFields);
+            const ws = XLSX.utils.aoa_to_sheet(data2D);
+
+            // Styling column widths roughly
+            const colWidths = data2D[0].map((_, colIndex) => {
+                let maxLen = 10;
+                for (let rowIndex = 0; rowIndex < data2D.length; rowIndex++) {
+                    const cellVal = data2D[rowIndex][colIndex];
+                    if (cellVal != null) {
+                        const len = String(cellVal).length;
+                        if (len > maxLen) maxLen = len;
+                    }
+                }
+                return { wch: maxLen + 2 };
+            });
+            ws['!cols'] = colWidths;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Pivot Table');
+            
+            const fileExtension = format === 'xlsx' ? 'xlsx' : 'xls';
+            XLSX.writeFile(wb, `klex_pivot_${selectedTable || 'export'}.${fileExtension}`);
+        } else if (format === 'pdf') {
+            let headersToExport = [...pivotModel.headers];
+            let isTruncated = false;
+            if (headersToExport.length > 100) {
+                headersToExport = headersToExport.slice(0, 100);
+                isTruncated = true;
+                window.alert(`The table has ${pivotModel.headers.length} value columns. PDF export is limited to the first 100 columns for readability. For the full dataset, please use CSV or Excel export.`);
+            }
+
+            const COLS_PER_PAGE = 6;
+            const chunks: string[][] = [];
+            for (let i = 0; i < headersToExport.length; i += COLS_PER_PAGE) {
+                chunks.push(headersToExport.slice(i, i + COLS_PER_PAGE));
+            }
+
+            const doc = new jsPDF({ orientation: 'landscape' });
+            const rowHeaders = rowFields.length > 0 ? rowFields.map(rf => rf.fieldName) : ['Label'];
+
+            chunks.forEach((chunk, chunkIdx) => {
+                if (chunkIdx > 0) {
+                    doc.addPage();
+                }
+
+                // Add Title
+                doc.setFontSize(14);
+                doc.text(`Pivot Table: ${selectedTable || 'Export'} (Part ${chunkIdx + 1} of ${chunks.length})`, 14, 10);
+                doc.setFontSize(9);
+                doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 15);
+                if (isTruncated) {
+                    doc.setTextColor(220, 38, 38); // red-600
+                    doc.text("Warning: Truncated to the first 100 value columns. Use CSV or Excel for full export.", 14, 19);
+                    doc.setTextColor(0, 0, 0); // reset
+                }
+
+                // Build table for this chunk
+                const tableHeaders = [...rowHeaders, ...chunk];
+
+                // Build body rows: rowLabels + values for current chunk
+                const tableBody = pivotModel.rows
+                    .filter(row => row.visible)
+                    .map(row => {
+                        let rowLabels: string[] = [];
+                        if (rowFields.length > 0) {
+                            const parts = row.groupKey.split('||');
+                            for (let i = 0; i < rowFields.length; i++) {
+                                if (i < row.depth) {
+                                    rowLabels.push(rowFields[i].repeatLabels ? (parts[i] || '') : '');
+                                } else if (i === row.depth) {
+                                    rowLabels.push(parts[i] || '');
+                                } else {
+                                    rowLabels.push(row.type === 'subtotal' ? 'Total' : '');
+                                }
+                            }
+                        } else {
+                            rowLabels = [row.label];
+                        }
+
+                        const cells = [...rowLabels];
+                        for (const header of chunk) {
+                            const val = row.values[header];
+                            const showAs = pivotModel.headerShowAs[header];
+                            if (val != null) {
+                                if (showAs && showAs !== 'default' && typeof val === 'number') {
+                                    cells.push(`${val.toFixed(1)}%`);
+                                } else {
+                                    const numVal = Number(val);
+                                    cells.push(isNaN(numVal) ? String(val) : String(numVal));
+                                }
+                            } else {
+                                cells.push('');
+                            }
+                        }
+                        return cells;
+                    });
+
+                // Add Grand Total row if present
+                if (Object.keys(pivotModel.grandTotal).length > 0) {
+                    const rowLabels = rowFields.length > 0 
+                        ? ['Grand Total', ...Array(rowFields.length - 1).fill('')]
+                        : ['Grand Total'];
+                    const cells = [...rowLabels];
+                    for (const header of chunk) {
+                        const val = pivotModel.grandTotal[header];
+                        const showAs = pivotModel.headerShowAs[header];
+                        if (val != null) {
+                            if (showAs && showAs !== 'default') {
+                                cells.push(`${val.toFixed(1)}%`);
+                            } else {
+                                const numVal = Number(val);
+                                cells.push(isNaN(numVal) ? String(val) : String(numVal));
+                            }
+                        } else {
+                            cells.push('');
+                        }
+                    }
+                    tableBody.push(cells);
+                }
+
+                autoTable(doc, {
+                    head: [tableHeaders],
+                    body: tableBody,
+                    startY: isTruncated ? 22 : 20,
+                    theme: 'striped',
+                    headStyles: { fillColor: [16, 185, 129], textColor: 255 }, // emerald-600 color
+                    styles: { fontSize: 8, cellPadding: 2 },
+                });
+            });
+
+            doc.save(`klex_pivot_${selectedTable || 'export'}.pdf`);
+        }
     };
 
     const toggleGroup = (groupKey: string) => {
@@ -986,40 +1483,63 @@ export default function DataExploration() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <select
-                        className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300"
-                        value={selectedAdapterId}
-                        onChange={(e) => setSelectedAdapterId(Number(e.target.value))}
-                        disabled={loadingAdapters}
-                    >
-                        {loadingAdapters && <option>Loading adapters...</option>}
-                        {!loadingAdapters && adapters.length === 0 && <option>No active Postgres or CSV adapters</option>}
-                        {adapters.map(a => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
-                        ))}
-                    </select>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Connection</span>
+                        <select
+                            className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300"
+                            value={selectedAdapterId}
+                            onChange={(e) => setSelectedAdapterId(Number(e.target.value))}
+                            disabled={loadingAdapters}
+                        >
+                            {loadingAdapters && <option>Loading adapters...</option>}
+                            {!loadingAdapters && adapters.length === 0 && <option>No active Postgres or CSV adapters</option>}
+                            {adapters.map(a => (
+                                <option key={a.id} value={a.id}>{a.name}</option>
+                            ))}
+                        </select>
+                    </div>
 
-                    <select
-                        className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300"
-                        value={selectedTable}
-                        onChange={(e) => setSelectedTable(e.target.value)}
-                        disabled={loadingTables || tables.length === 0}
-                    >
-                        {loadingTables && <option>Loading tables...</option>}
-                        {!loadingTables && tables.length === 0 && <option>No tables found</option>}
-                        {tables.map(t => (
-                            <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Table</span>
+                        <select
+                            className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300"
+                            value={selectedTable}
+                            onChange={(e) => setSelectedTable(e.target.value)}
+                            disabled={loadingTables || tables.length === 0}
+                        >
+                            {loadingTables && <option>Loading tables...</option>}
+                            {!loadingTables && tables.length === 0 && <option>No tables found</option>}
+                            {tables.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {adapters.find(a => a.id === selectedAdapterId)?.adapter_type === 'jdbc' && selectedTable && (
+                        <button
+                            onClick={() => setShowJoinBuilder(true)}
+                            className="flex items-center gap-1.5 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-950/20 hover:bg-primary-50 dark:hover:bg-primary-950/30 px-3 py-1.5 text-sm font-semibold text-primary-600 dark:text-primary-400 transition-colors"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                            <span>Join ({joins.length})</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
             {/* Split Panel Layout */}
-            <div className="flex flex-1 min-h-0 gap-4 overflow-hidden">
+            <div className={`flex flex-1 min-h-0 overflow-hidden transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'gap-0' : 'gap-4'}`}>
                 {/* Panel 1: Available Fields (Leftmost) */}
-                {!isSidebarCollapsed && (
-                    <div className="w-[280px] bg-white dark:bg-surface-800 border border-gray-100 dark:border-gray-800 shadow-sm rounded-2xl p-4 flex flex-col min-h-0">
+                <div 
+                    className={`bg-white dark:bg-surface-800 shadow-sm rounded-2xl flex flex-col min-h-0 transition-all duration-300 ease-in-out flex-shrink-0 ${
+                        isSidebarCollapsed 
+                            ? 'w-0 opacity-0 p-0 border-0 overflow-hidden pointer-events-none' 
+                            : 'w-[280px] opacity-100 p-4 border border-gray-100 dark:border-gray-800'
+                    }`}
+                >
                         <div className="flex flex-col h-full min-h-0">
                             <div className="flex items-center justify-between mb-2 flex-shrink-0">
                                 <span className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
@@ -1083,11 +1603,15 @@ export default function DataExploration() {
                             </div>
                         </div>
                     </div>
-                )}
 
                 {/* Panel 2: Field Wells & Controls (Middle) */}
-                {!isSidebarCollapsed && (
-                    <div className="w-[320px] bg-white dark:bg-surface-800 border border-gray-100 dark:border-gray-800 shadow-sm rounded-2xl p-4 flex flex-col min-h-0">
+                <div 
+                    className={`bg-white dark:bg-surface-800 shadow-sm rounded-2xl flex flex-col min-h-0 transition-all duration-300 ease-in-out flex-shrink-0 ${
+                        isSidebarCollapsed 
+                            ? 'w-0 opacity-0 p-0 border-0 overflow-hidden pointer-events-none' 
+                            : 'w-[320px] opacity-100 p-4 border border-gray-100 dark:border-gray-800'
+                    }`}
+                >
                     <div className="flex flex-col h-full min-h-0">
                         <span className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3 flex-shrink-0">
                             Pivot Table Layout
@@ -1249,6 +1773,39 @@ export default function DataExploration() {
                                                         ))}
                                                     </select>
                                                 </div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[9px] text-gray-500 dark:text-gray-400 uppercase">Sort:</span>
+                                                    <select
+                                                        className="bg-white dark:bg-surface-800 border border-indigo-200 dark:border-indigo-700 text-[10px] py-0.5 px-1 rounded cursor-pointer"
+                                                        value={
+                                                            sortColumn && (sortColumn === getValueLabel(f) || sortColumn.endsWith(` — ${getValueLabel(f)}`))
+                                                                ? sortDirection
+                                                                : 'none'
+                                                        }
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val === 'none') {
+                                                                setSortColumn(null);
+                                                                setSortDirection('asc');
+                                                            } else {
+                                                                const metricLabel = getValueLabel(f);
+                                                                let matchingHeader = metricLabel;
+                                                                if (pivotModel?.headers) {
+                                                                    const found = pivotModel.headers.find(h => h === metricLabel || h.endsWith(` — ${metricLabel}`));
+                                                                    if (found) {
+                                                                        matchingHeader = found;
+                                                                    }
+                                                                }
+                                                                setSortColumn(matchingHeader);
+                                                                setSortDirection(val as 'asc' | 'desc');
+                                                            }
+                                                        }}
+                                                    >
+                                                        <option value="none">None</option>
+                                                        <option value="asc">Ascending (Smallest to Largest)</option>
+                                                        <option value="desc">Descending (Largest to Smallest)</option>
+                                                    </select>
+                                                </div>
                                             </div>
                                             <input
                                                 type="text"
@@ -1373,15 +1930,31 @@ export default function DataExploration() {
                         <div className="mt-auto pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 flex-shrink-0">
                             <div className="flex flex-col gap-1">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Limit (Max Grouped Combinations):</span>
-                                    <input
-                                        type="number"
-                                        className="w-20 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-900 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-300"
-                                        value={rowLimit}
-                                        onChange={(e) => setRowLimit(Math.max(1, Number(e.target.value)))}
-                                        max={10000}
-                                        min={1}
-                                    />
+                                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={rowLimit !== null}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setRowLimit(1000);
+                                                } else {
+                                                    setRowLimit(null);
+                                                }
+                                            }}
+                                            className="w-3.5 h-3.5 rounded text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-700"
+                                        />
+                                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Limit (Max Grouped Combinations):</span>
+                                    </label>
+                                    {rowLimit !== null && (
+                                        <input
+                                            type="number"
+                                            className="w-20 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-900 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-300"
+                                            value={rowLimit}
+                                            onChange={(e) => setRowLimit(Math.max(1, Number(e.target.value)))}
+                                            max={10000}
+                                            min={1}
+                                        />
+                                    )}
                                 </div>
                                 <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">
                                     Limits unique aggregated combinations fetched from the database. A lower limit may lead to incomplete totals.
@@ -1414,7 +1987,6 @@ export default function DataExploration() {
                         </div>
                     </div>
                 </div>
-                )}
 
                 {/* Right Pivot Table Results Canvas */}
                 <div className="flex-1 bg-white dark:bg-surface-800 border border-gray-100 dark:border-gray-800 shadow-sm rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden">
@@ -1437,6 +2009,16 @@ export default function DataExploration() {
                                 <span className="flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-surface-700 text-gray-700 dark:text-gray-300">
                                     📊 {queryResult?.row_count} raw rows
                                 </span>
+                                {isQueryFromCache && (
+                                    <span className="flex items-center gap-1 font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40">
+                                        Server Cache Hit ⚡
+                                    </span>
+                                )}
+                                {isClientRePivoted && (
+                                    <span className="flex items-center gap-1 font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/40">
+                                        Client Re-pivoted ⚡
+                                    </span>
+                                )}
                                 {isDirty && (
                                     <span className="flex items-center gap-1 font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40 animate-pulse">
                                         ⚠️ Configuration changed — click "Run Query" to refresh
@@ -1445,6 +2027,21 @@ export default function DataExploration() {
                             </div>
 
                             <div className="flex items-center gap-2">
+                                {user?.is_super_admin && queryResult?.debug && (
+                                    <button
+                                        onClick={() => setShowQueryInspector(prev => !prev)}
+                                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                                            showQueryInspector
+                                                ? 'bg-primary-50 border-primary-300 text-primary-700 dark:bg-primary-950/40 dark:border-primary-800 dark:text-primary-300'
+                                                : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-surface-700 text-gray-700 dark:text-gray-300'
+                                        }`}
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        SQL Inspector
+                                    </button>
+                                )}
                                 {/* Tools Dropdown */}
                                 <div className="relative" ref={toolsMenuRef}>
                                     <button
@@ -1505,14 +2102,12 @@ export default function DataExploration() {
                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9h6m-6 3h6m-6 3h6M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" />
                                             </svg>
-                                            Show Sidebar
                                         </>
                                     ) : (
                                         <>
                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
                                             </svg>
-                                            Full Screen
                                         </>
                                     )}
                                 </button>
@@ -1522,19 +2117,218 @@ export default function DataExploration() {
                                 >
                                     Expand/Collapse All
                                 </button>
-                                <button
-                                    onClick={handleCSVExport}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors"
-                                >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    Export CSV
-                                </button>
+
+                                {/* Sort Dropdown */}
+                                <div className="relative" ref={sortMenuRef}>
+                                    <button
+                                        onClick={() => setShowSortMenu(prev => !prev)}
+                                        className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-surface-700 text-xs font-semibold text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-1.5"
+                                        id="pivot-sort-menu"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                                        </svg>
+                                        Sort
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {showSortMenu && (
+                                        <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-surface-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
+                                            {fields.filter(f => f.area === 'rows').map(f => (
+                                                <div key={f.id} className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                                                    <div className="font-semibold text-[10px] text-gray-500 dark:text-gray-400 mb-1">{f.fieldName}</div>
+                                                    <div className="flex gap-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                updateField(f.id, { sortOrder: 'asc' });
+                                                                if (sortColumn === f.fieldName) {
+                                                                    setSortDirection('asc');
+                                                                 }
+                                                            }}
+                                                            className={`flex-1 px-2 py-1 text-[10px] font-medium rounded border text-center transition-colors ${
+                                                                f.sortOrder === 'asc'
+                                                                    ? 'bg-primary-50 border-primary-300 text-primary-700 dark:bg-primary-950/40 dark:border-primary-800 dark:text-primary-300'
+                                                                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-700'
+                                                            }`}
+                                                        >
+                                                            A → Z
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                updateField(f.id, { sortOrder: 'desc' });
+                                                                if (sortColumn === f.fieldName) {
+                                                                    setSortDirection('desc');
+                                                                }
+                                                            }}
+                                                            className={`flex-1 px-2 py-1 text-[10px] font-medium rounded border text-center transition-colors ${
+                                                                f.sortOrder === 'desc'
+                                                                    ? 'bg-primary-50 border-primary-300 text-primary-700 dark:bg-primary-950/40 dark:border-primary-800 dark:text-primary-300'
+                                                                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-700'
+                                                            }`}
+                                                        >
+                                                            Z → A
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {/* Value fields sort options */}
+                                            {fields.filter(f => f.area === 'values').length > 0 && (
+                                                <>
+                                                    {fields.filter(f => f.area === 'rows').length > 0 && (
+                                                        <div className="px-3 py-1.5 border-b border-gray-100 dark:border-gray-700">
+                                                            <div className="font-bold text-[9px] uppercase tracking-wider text-gray-400 dark:text-gray-500">Values</div>
+                                                        </div>
+                                                    )}
+                                                    {fields.filter(f => f.area === 'values').map(f => {
+                                                        const metricLabel = getValueLabel(f);
+                                                        const isActive = sortColumn === metricLabel;
+                                                        return (
+                                                            <div key={f.id} className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                                                                <div className="font-semibold text-[10px] text-gray-500 dark:text-gray-400 mb-1">{metricLabel}</div>
+                                                                <div className="flex gap-1">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSortColumn(metricLabel);
+                                                                            setSortDirection('asc');
+                                                                        }}
+                                                                        className={`flex-1 px-2 py-1 text-[10px] font-medium rounded border text-center transition-colors ${
+                                                                            isActive && sortDirection === 'asc'
+                                                                                ? 'bg-primary-50 border-primary-300 text-primary-700 dark:bg-primary-950/40 dark:border-primary-800 dark:text-primary-300'
+                                                                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-700'
+                                                                        }`}
+                                                                    >
+                                                                        1 → 9
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSortColumn(metricLabel);
+                                                                            setSortDirection('desc');
+                                                                        }}
+                                                                        className={`flex-1 px-2 py-1 text-[10px] font-medium rounded border text-center transition-colors ${
+                                                                            isActive && sortDirection === 'desc'
+                                                                                ? 'bg-primary-50 border-primary-300 text-primary-700 dark:bg-primary-950/40 dark:border-primary-800 dark:text-primary-300'
+                                                                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-700'
+                                                                        }`}
+                                                                    >
+                                                                        9 → 1
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </>
+                                            )}
+                                            {sortColumn && (
+                                                <button
+                                                    onClick={() => {
+                                                        setSortColumn(null);
+                                                        setSortDirection('asc');
+                                                        setShowSortMenu(false);
+                                                    }}
+                                                    className="w-full text-left px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 font-medium transition-colors flex items-center gap-1.5 border-t border-gray-100 dark:border-gray-700"
+                                                >
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                    Reset Interactive Sort
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Export Dropdown */}
+                                <div className="relative" ref={exportMenuRef}>
+                                    <button
+                                        onClick={() => setShowExportMenu(prev => !prev)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors"
+                                        id="pivot-export-menu"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        Export
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {showExportMenu && (
+                                        <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-surface-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
+                                            <button
+                                                onClick={() => { handleExport('csv'); setShowExportMenu(false); }}
+                                                className="w-full text-left px-3.5 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-surface-700 transition-colors flex items-center gap-2"
+                                            >
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                                CSV (.csv)
+                                            </button>
+                                            <button
+                                                onClick={() => { handleExport('xlsx'); setShowExportMenu(false); }}
+                                                className="w-full text-left px-3.5 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-surface-700 transition-colors flex items-center gap-2"
+                                            >
+                                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                Excel (.xlsx)
+                                            </button>
+                                            <button
+                                                onClick={() => { handleExport('xls'); setShowExportMenu(false); }}
+                                                className="w-full text-left px-3.5 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-surface-700 transition-colors flex items-center gap-2"
+                                            >
+                                                <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+                                                Excel (.xls)
+                                            </button>
+                                            <button
+                                                onClick={() => { handleExport('pdf'); setShowExportMenu(false); }}
+                                                className="w-full text-left px-3.5 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-surface-700 transition-colors flex items-center gap-2"
+                                            >
+                                                <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                                PDF (.pdf)
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
 
+                    {/* SQL Query Inspector Panel */}
+                    {showQueryInspector && queryResult?.debug && (
+                        <div className="mt-3 p-4 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50/30 dark:bg-primary-950/10 flex-shrink-0">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 uppercase">
+                                        {queryResult.debug?.query_engine} Engine
+                                    </span>
+                                    <h4 className="text-xs font-bold text-gray-900 dark:text-gray-100">SQL Query</h4>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => {
+                                            if (queryResult?.debug?.generated_query) {
+                                                navigator.clipboard.writeText(queryResult.debug.generated_query);
+                                            }
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-surface-700 text-[10px] font-semibold text-gray-600 dark:text-gray-400 transition-colors"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                        </svg>
+                                        Copy SQL
+                                    </button>
+                                    <button
+                                        onClick={() => setShowQueryInspector(false)}
+                                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <pre className="text-[11px] font-mono bg-gray-50 dark:bg-surface-900 border border-gray-200 dark:border-gray-800 rounded-lg p-3 overflow-x-auto text-gray-700 dark:text-gray-300 max-h-48 whitespace-pre-wrap">
+                                {queryResult.debug?.generated_query}
+                            </pre>
+                        </div>
+                    ) /* Note: closing of Results Toolbar wrapper */}
                     {/* Z-Score Legend Bar */}
                     {conditionalFormatRule && zScoreResult && (
                         <div className="flex items-center gap-3 mt-3 px-3 py-2 rounded-lg border border-violet-200 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-950/20 flex-shrink-0">
@@ -1781,6 +2575,260 @@ export default function DataExploration() {
                                 onClose={() => setShowZScorePanel(false)}
                             />
                         )}
+
+                        {/* Join Builder Modal */}
+                        <Modal isOpen={showJoinBuilder} onClose={() => setShowJoinBuilder(false)} maxWidth="max-w-3xl">
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 dark:border-gray-800">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+                                        <svg className="w-4 h-4 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 00-5.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                                            Query Joins Manager
+                                        </h2>
+                                        <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                                            Define relationships between tables to access fields across multiple tables.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowJoinBuilder(false)}
+                                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {/* List of Joins */}
+                            <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                                {tempJoins.length === 0 ? (
+                                    <div className="text-center py-10 border-2 border-dashed border-gray-200 dark:border-gray-700/60 rounded-xl bg-gray-50/50 dark:bg-surface-900/10">
+                                        <svg className="mx-auto w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 00-5.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                        </svg>
+                                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">No joins configured yet</p>
+                                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 max-w-sm mx-auto">
+                                            Add a join to combine fields from another table in the database with the primary table <span className="font-semibold">{selectedTable}</span>.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setTempJoins([...tempJoins, {
+                                                    table: '',
+                                                    type: 'INNER',
+                                                    on: { left_table: selectedTable, left_column: '', right_column: '' }
+                                                }]);
+                                            }}
+                                            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold shadow-sm transition-colors"
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            Add Your First Join
+                                        </button>
+                                    </div>
+                                ) : (
+                                    tempJoins.map((join, idx) => {
+                                        const rightTables = getRightTablesForJoin(idx);
+                                        const leftTables = getLeftTablesForJoin(idx);
+                                        const leftColumns = join.on.left_table === selectedTable
+                                            ? columns
+                                            : (joinedTablesColumns[join.on.left_table || ''] || []);
+                                        const rightColumns = joinedTablesColumns[join.table] || [];
+
+                                        return (
+                                            <div key={idx} className="p-4 rounded-xl border border-gray-200 dark:border-gray-700/80 bg-gray-50/30 dark:bg-surface-900/10 flex flex-col gap-3 relative hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
+                                                {/* Remove button */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeJoin(idx)}
+                                                    className="absolute top-3 right-3 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1 rounded-md hover:bg-gray-100 dark:hover:bg-surface-700"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+
+                                                {/* Title / Index badge */}
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-5 h-5 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 flex items-center justify-center text-[10px] font-bold">
+                                                        {idx + 1}
+                                                    </span>
+                                                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Join Definition</span>
+                                                </div>
+
+                                                {/* Form Layout */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
+                                                    {/* Right Table selection */}
+                                                    <div>
+                                                        <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">
+                                                            Table to Join (Right)
+                                                        </label>
+                                                        <select
+                                                            value={join.table}
+                                                            onChange={(e) => handleRightTableChange(idx, e.target.value)}
+                                                            className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-800 text-xs font-semibold text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                                                        >
+                                                            <option value="">Select table...</option>
+                                                            {join.table && !rightTables.includes(join.table) && (
+                                                                <option value={join.table}>{join.table}</option>
+                                                            )}
+                                                            {rightTables.map(t => (
+                                                                <option key={t} value={t}>{t}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    {/* Join Type */}
+                                                    <div>
+                                                        <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">
+                                                            Join Type
+                                                        </label>
+                                                        <select
+                                                            value={join.type}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value as JoinConfig['type'];
+                                                                setTempJoins(prev => prev.map((j, i) => i === idx ? { ...j, type: val } : j));
+                                                            }}
+                                                            className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-800 text-xs font-semibold text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                                                        >
+                                                            <option value="INNER">INNER JOIN</option>
+                                                            <option value="LEFT">LEFT JOIN</option>
+                                                            <option value="RIGHT">RIGHT JOIN</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                {/* Condition (ON Clause) */}
+                                                {join.table && (
+                                                    <div className="bg-white dark:bg-surface-800 border border-gray-100 dark:border-gray-700/60 rounded-lg p-3 mt-1 flex flex-col gap-2">
+                                                        <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                                                            Relationship Condition (ON)
+                                                        </span>
+                                                        <div className="flex flex-col md:flex-row items-center gap-2">
+                                                            {/* Left Table select */}
+                                                            <div className="flex-1 w-full">
+                                                                <div className="text-[9px] text-gray-400 mb-0.5">Left Table</div>
+                                                                <select
+                                                                    value={join.on.left_table || selectedTable}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        setTempJoins(prev => prev.map((j, i) => {
+                                                                            if (i !== idx) return j;
+                                                                            return {
+                                                                                ...j,
+                                                                                on: {
+                                                                                    ...j.on,
+                                                                                    left_table: val,
+                                                                                    left_column: ''
+                                                                                }
+                                                                            };
+                                                                        }));
+                                                                    }}
+                                                                    className="w-full px-2 py-1 rounded border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-surface-900 text-xs text-gray-700 dark:text-gray-300"
+                                                                >
+                                                                    {leftTables.map(t => (
+                                                                        <option key={t} value={t}>{t}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+
+                                                            {/* Left Column select */}
+                                                            <div className="flex-1 w-full">
+                                                                <div className="text-[9px] text-gray-400 mb-0.5">Left Column</div>
+                                                                <select
+                                                                    value={join.on.left_column}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        setTempJoins(prev => prev.map((j, i) => {
+                                                                            if (i !== idx) return j;
+                                                                            return { ...j, on: { ...j.on, left_column: val } };
+                                                                        }));
+                                                                    }}
+                                                                    className="w-full px-2 py-1 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-800 text-xs text-gray-700 dark:text-gray-300"
+                                                                >
+                                                                    <option value="">Select column...</option>
+                                                                    {leftColumns.map(c => (
+                                                                        <option key={c.name} value={c.name}>{c.name}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+
+                                                            <span className="text-xs font-bold text-gray-400 px-1 mt-3">=</span>
+
+                                                            {/* Right Column select */}
+                                                            <div className="flex-1 w-full">
+                                                                <div className="text-[9px] text-gray-400 mb-0.5">Right Column ({join.table})</div>
+                                                                <select
+                                                                    value={join.on.right_column}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        setTempJoins(prev => prev.map((j, i) => {
+                                                                            if (i !== idx) return j;
+                                                                            return { ...j, on: { ...j.on, right_column: val } };
+                                                                        }));
+                                                                    }}
+                                                                    className="w-full px-2 py-1 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-800 text-xs text-gray-700 dark:text-gray-300"
+                                                                >
+                                                                    <option value="">Select column...</option>
+                                                                    {rightColumns.map(c => (
+                                                                        <option key={c.name} value={c.name}>{c.name}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                {tempJoins.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setTempJoins([...tempJoins, {
+                                                table: '',
+                                                type: 'INNER',
+                                                on: { left_table: selectedTable, left_column: '', right_column: '' }
+                                            }]);
+                                        }}
+                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-surface-700 text-xs font-semibold text-gray-600 dark:text-gray-300 transition-colors"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Add Join
+                                    </button>
+                                )}
+                                <div className="flex items-center gap-2 ml-auto">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowJoinBuilder(false)}
+                                        className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-surface-700 text-xs font-semibold text-gray-600 dark:text-gray-300 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveJoins}
+                                        className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold shadow-glow-sm hover:shadow-glow transition-colors"
+                                    >
+                                        Apply & Save Joins
+                                    </button>
+                                </div>
+                            </div>
+                        </Modal>
                     </div>
                 </div>
             </div>

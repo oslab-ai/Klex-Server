@@ -279,6 +279,25 @@ wheels = [
 ]
 
 [[package]]
+name = "arize-phoenix-otel"
+version = "0.16.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "openinference-instrumentation" },
+    { name = "openinference-semantic-conventions" },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-proto" },
+    { name = "opentelemetry-sdk" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "typing-extensions" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/37/97/5aef2776ee17eacb24a82de719312008ca0a16b915415cc9363a9a9b1536/arize_phoenix_otel-0.16.1.tar.gz", hash = "sha256:28ba1d43dcd2dc556f6cac25622c3333e613e2cf1d687832a9ed5ce2c20e17be", size = 20933, upload-time = "2026-05-03T19:07:02.563Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ee/2e/e495446a8a715d9892a4dbc56e11b18fb6f07a634182babc0b0ac6827d9c/arize_phoenix_otel-0.16.1-py3-none-any.whl", hash = "sha256:eb71f7be8d94e68f5cd82b134f7ea1710fa73374bf0d8d663ce6242332871ff9", size = 18033, upload-time = "2026-05-03T19:07:01.395Z" },
+]
+
+[[package]]
 name = "asgiref"
 version = "3.11.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1061,12 +1080,14 @@ name = "klex"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "arize-phoenix-otel" },
     { name = "dj-database-url" },
     { name = "django", version = "5.2.11", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "django", version = "6.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "django-cors-headers" },
     { name = "djangorestframework" },
     { name = "djangorestframework-simplejwt" },
+    { name = "opentelemetry-api" },
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
     { name = "pytz" },
@@ -1086,11 +1107,13 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "apache-airflow", marker = "extra == 'airflow'", specifier = ">=3.1.8" },
+    { name = "arize-phoenix-otel" },
     { name = "dj-database-url", specifier = ">=2.1" },
     { name = "django", specifier = ">=5.0" },
     { name = "django-cors-headers", specifier = ">=4.3" },
     { name = "djangorestframework", specifier = ">=3.14" },
     { name = "djangorestframework-simplejwt", specifier = ">=5.3" },
+    { name = "opentelemetry-api" },
     { name = "psycopg2-binary", specifier = ">=2.9" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4" },
     { name = "pytest-django", marker = "extra == 'dev'", specifier = ">=4.5" },
@@ -1404,6 +1427,30 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e2/a9/a0c57aee75f77794adaf35322f8b6404cbd0f89ad45c87197a937764b7d0/natsort-8.4.0.tar.gz", hash = "sha256:45312c4a0e5507593da193dedd04abb1469253b601ecaf63445ad80f0a1ea581", size = 76575, upload-time = "2023-06-20T04:17:19.925Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ef/82/7a9d0550484a62c6da82858ee9419f3dd1ccc9aa1c26a1e43da3ecd20b0d/natsort-8.4.0-py3-none-any.whl", hash = "sha256:4732914fb471f56b5cce04d7bae6f164a592c7712e1c85f9ef585e197299521c", size = 38268, upload-time = "2023-06-20T04:17:17.522Z" },
+]
+
+[[package]]
+name = "openinference-instrumentation"
+version = "0.1.52"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "openinference-semantic-conventions" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-sdk" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/be/0d/10f658e2a7738a55c7de9717d07cfbb40537f2fc620c94718bd9e1b21c4a/openinference_instrumentation-0.1.52.tar.gz", hash = "sha256:0fce0f390f706ca37f385ee64f19df8b290bf9e43e9a701c97377d2ad2745807", size = 33307, upload-time = "2026-05-22T21:10:45.943Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/f2/c730507f42a538e76a12fc315b1e65e08c9d0344f6eb448189a086724120/openinference_instrumentation-0.1.52-py3-none-any.whl", hash = "sha256:98f668a5ceaf057eeee82272e855160131849766b5ffe3266cb1c229d9dfe561", size = 40508, upload-time = "2026-05-22T21:10:44.152Z" },
+]
+
+[[package]]
+name = "openinference-semantic-conventions"
+version = "0.1.30"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/51/8ba1182ee86fc79793d5ff2d11e7fdcda10ded2d01f3e46ca6fcf0568213/openinference_semantic_conventions-0.1.30.tar.gz", hash = "sha256:81fece76e09c83789e35c393b8b30523481eeabf1008745b955631a53e3221d9", size = 13391, upload-time = "2026-05-22T21:10:44.065Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b6/76/5b7e78cf0de38589b821bbe8e9c29c59a6e76edfb980488d0854cbb90f7c/openinference_semantic_conventions-0.1.30-py3-none-any.whl", hash = "sha256:36d946d3f95f699b7c4b12324ae9c1f02d6c7750df11eece56aa159cff430b3d", size = 10911, upload-time = "2026-05-22T21:10:43.04Z" },
 ]
 
 [[package]]

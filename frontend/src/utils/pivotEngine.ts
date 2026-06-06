@@ -58,7 +58,10 @@ export interface PivotRow {
 // Aggregation helpers
 // ============================================================
 
-type AggregateType = 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'COUNT' | 'COUNT_DISTINCT' | 'MEDIAN' | 'PRODUCT';
+type AggregateType =
+    | 'SUM' | 'COUNTA' | 'COUNT' | 'COUNTUNIQUE' | 'AVERAGE' | 'MAX' | 'MIN'
+    | 'MEDIAN' | 'PRODUCT' | 'STDEV' | 'STDEVP' | 'VAR' | 'VARP'
+    | 'AVG' | 'COUNT_DISTINCT';
 
 function aggregateValues(values: number[], agg: AggregateType): number {
     if (values.length === 0) return 0;
@@ -66,13 +69,16 @@ function aggregateValues(values: number[], agg: AggregateType): number {
         case 'SUM':
             return values.reduce((a, b) => a + b, 0);
         case 'AVG':
+        case 'AVERAGE':
             return values.reduce((a, b) => a + b, 0) / values.length;
         case 'MIN':
             return Math.min(...values);
         case 'MAX':
             return Math.max(...values);
         case 'COUNT':
+        case 'COUNTA':
         case 'COUNT_DISTINCT':
+        case 'COUNTUNIQUE':
             return values.reduce((a, b) => a + b, 0);
         case 'MEDIAN': {
             const sorted = [...values].sort((a, b) => a - b);
@@ -83,6 +89,28 @@ function aggregateValues(values: number[], agg: AggregateType): number {
         }
         case 'PRODUCT':
             return values.reduce((a, b) => a * b, 1);
+        case 'STDEV': {
+            if (values.length <= 1) return 0;
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const variance = values.reduce((s, x) => s + (x - mean) ** 2, 0) / (values.length - 1);
+            return variance ** 0.5;
+        }
+        case 'STDEVP': {
+            if (values.length === 0) return 0;
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const variance = values.reduce((s, x) => s + (x - mean) ** 2, 0) / values.length;
+            return variance ** 0.5;
+        }
+        case 'VAR': {
+            if (values.length <= 1) return 0;
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            return values.reduce((s, x) => s + (x - mean) ** 2, 0) / (values.length - 1);
+        }
+        case 'VARP': {
+            if (values.length === 0) return 0;
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            return values.reduce((s, x) => s + (x - mean) ** 2, 0) / values.length;
+        }
         default:
             return values.reduce((a, b) => a + b, 0);
     }
@@ -98,7 +126,7 @@ function toNumber(val: unknown): number {
 }
 
 /** Generate a display label for a value field */
-function getValueLabel(f: PivotFieldConfig): string {
+export function getValueLabel(f: PivotFieldConfig): string {
     if (f.customLabel) return f.customLabel;
     if (f.alias) return f.alias;
     const agg = f.aggregate || 'SUM';
@@ -337,7 +365,7 @@ function buildGroupedRows(
                 childCount: 0,
             });
         } else {
-            // Non-leaf: add a group subtotal header, then recurse
+            // Non-leaf: add group subtotal header first, then recurse into children
             result.push({
                 type: 'subtotal',
                 depth,
@@ -425,6 +453,78 @@ function buildFlatModel(data: Record<string, unknown>[]): PivotModel {
 // ============================================================
 // CSV Export
 // ============================================================
+
+export function pivotTo2DArray(model: PivotModel, rowFields: PivotFieldConfig[] = []): (string | number)[][] {
+    const data: (string | number)[][] = [];
+
+    // Header row
+    const rowHeaders = rowFields.length > 0 ? rowFields.map(rf => rf.fieldName) : ['Label'];
+    const headerRow = [...rowHeaders, ...model.headers];
+    data.push(headerRow);
+
+    // Data rows (only visible ones)
+    for (const row of model.rows) {
+        if (!row.visible) continue;
+        
+        let rowLabels: string[] = [];
+        if (rowFields.length > 0) {
+            const parts = row.groupKey.split('||');
+            for (let i = 0; i < rowFields.length; i++) {
+                if (i < row.depth) {
+                    rowLabels.push(rowFields[i].repeatLabels ? (parts[i] || '') : '');
+                } else if (i === row.depth) {
+                    rowLabels.push(parts[i] || '');
+                } else {
+                    rowLabels.push(row.type === 'subtotal' ? 'Total' : '');
+                }
+            }
+        } else {
+            rowLabels = [row.label];
+        }
+
+        const cells: (string | number)[] = [...rowLabels];
+        for (const header of model.headers) {
+            const val = row.values[header];
+            const showAs = model.headerShowAs[header];
+            if (val != null) {
+                if (showAs && showAs !== 'default' && typeof val === 'number') {
+                    cells.push(`${val.toFixed(1)}%`);
+                } else {
+                    const numVal = Number(val);
+                    cells.push(isNaN(numVal) ? String(val) : numVal);
+                }
+            } else {
+                cells.push('');
+            }
+        }
+        data.push(cells);
+    }
+
+    // Grand total row
+    if (Object.keys(model.grandTotal).length > 0) {
+        const rowLabels = rowFields.length > 0 
+            ? ['Grand Total', ...Array(rowFields.length - 1).fill('')]
+            : ['Grand Total'];
+        const cells: (string | number)[] = [...rowLabels];
+        for (const header of model.headers) {
+            const val = model.grandTotal[header];
+            const showAs = model.headerShowAs[header];
+            if (val != null) {
+                if (showAs && showAs !== 'default') {
+                    cells.push(`${val.toFixed(1)}%`);
+                } else {
+                    const numVal = Number(val);
+                    cells.push(isNaN(numVal) ? String(val) : numVal);
+                }
+            } else {
+                cells.push('');
+            }
+        }
+        data.push(cells);
+    }
+
+    return data;
+}
 
 export function pivotToCSV(model: PivotModel, rowFields: PivotFieldConfig[] = []): string {
     const lines: string[] = [];

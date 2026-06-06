@@ -10,6 +10,7 @@ from .views import (
     DataAdapterColumnsView,
     DataAdapterQueryView,
     DataAdapterDistinctValuesView,
+    DataAdapterMultiColumnsView,
 )
 
 urlpatterns = [
@@ -20,6 +21,7 @@ urlpatterns = [
     # Data Exploration endpoints
     path('<int:pk>/tables/', DataAdapterTablesView.as_view(), name='adapter-tables'),
     path('<int:pk>/columns/', DataAdapterColumnsView.as_view(), name='adapter-columns'),
+    path('<int:pk>/multi-columns/', DataAdapterMultiColumnsView.as_view(), name='adapter-multi-columns'),
     path('<int:pk>/query/', DataAdapterQueryView.as_view(), name='adapter-query'),
     path('<int:pk>/distinct-values/', DataAdapterDistinctValuesView.as_view(), name='adapter-distinct-values'),
 ]

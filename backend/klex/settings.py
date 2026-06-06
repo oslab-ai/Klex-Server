@@ -14,7 +14,7 @@ ROOT_DIR = BASE_DIR.parent
 load_dotenv(ROOT_DIR / '.env', override=True)
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-dev-key-change-me')
-DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() in ('true', '1', 'yes')
+DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,13.60.170.247').split(',')
 

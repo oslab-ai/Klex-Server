@@ -545,9 +545,8 @@ export interface TableColumn {
 }
 
 export type AggregateType =
-    | 'SUM' | 'AVG' | 'MIN' | 'MAX'
-    | 'COUNT' | 'COUNT_DISTINCT'
-    | 'MEDIAN' | 'PRODUCT';
+    | 'SUM' | 'COUNTA' | 'COUNT' | 'COUNTUNIQUE' | 'AVERAGE' | 'MAX' | 'MIN'
+    | 'MEDIAN' | 'PRODUCT' | 'STDEV' | 'STDEVP' | 'VAR' | 'VARP';
 
 export type ShowAsMode =
     | 'default'
@@ -567,12 +566,23 @@ export interface FilterConfig {
     value: string;
 }
 
+export interface JoinConfig {
+    table: string;
+    type: 'INNER' | 'LEFT' | 'RIGHT';
+    on: {
+        left_table?: string;
+        left_column: string;
+        right_column: string;
+    };
+}
+
 export interface ExplorationQuery {
     table_name: string;
+    joins?: JoinConfig[];
     dimensions: string[];
     metrics: MetricConfig[];
     filters: FilterConfig[];
-    row_limit: number;
+    row_limit: number | null;
 }
 
 export interface ExplorationResult {
@@ -580,6 +590,12 @@ export interface ExplorationResult {
     row_count: number;
     columns: string[];
     query_time_ms: number;
+    cache_hit?: boolean;
+    debug?: {
+        generated_query: string;
+        query_params: string[];
+        query_engine: string;
+    };
 }
 
 export type PivotArea = 'rows' | 'columns' | 'values' | 'filters';

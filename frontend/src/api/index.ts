@@ -379,6 +379,13 @@ export const dataAdaptersApi = {
         return data;
     },
 
+    getMultiColumns: async (id: number, tables: string[]): Promise<{ tables: Record<string, TableColumn[]> }> => {
+        const { data } = await api.get<{ tables: Record<string, TableColumn[]> }>(
+            `/api/data-adapters/${id}/multi-columns/`, { params: { tables: tables.join(',') } }
+        );
+        return data;
+    },
+
     executeQuery: async (id: number, query: ExplorationQuery): Promise<ExplorationResult> => {
         const { data } = await api.post<ExplorationResult>(`/api/data-adapters/${id}/query/`, query);
         return data;
