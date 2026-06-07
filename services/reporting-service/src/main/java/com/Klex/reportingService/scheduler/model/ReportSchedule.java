@@ -20,6 +20,7 @@ public class ReportSchedule {
     private OutputFormat outputFormat;
     private DeliveryMethod deliveryMethod;
     private String emailTo;
+    private String driveFolderId;
 
     // New fields to match JSON structure
     private MailNotification mailNotification;

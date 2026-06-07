@@ -78,7 +78,8 @@ public class ReportSchedulerService {
                                 : (outputFormat != null ? outputFormat : "PDF"))
                 .usingJobData("outputTimeZone",
                         schedule.getOutputTimeZone() != null ? schedule.getOutputTimeZone() : "UTC")
-                .usingJobData("deliveryMethod", "EMAIL")
+                .usingJobData("deliveryMethod",
+                        schedule.getDeliveryMethod() != null ? schedule.getDeliveryMethod().name() : "EMAIL")
                 .usingJobData("emailTo", emailTo != null ? emailTo : "")
                 .usingJobData("emailSubject",
                         schedule.getMailNotification() != null && schedule.getMailNotification().getSubject() != null
@@ -98,6 +99,11 @@ public class ReportSchedulerService {
             } catch (JsonProcessingException e) {
                 log.error("Failed to serialize report output formats", e);
             }
+        }
+
+        // Store driveFolderId for Google Drive deliver
+        if (schedule.getDriveFolderId() != null && !schedule.getDriveFolderId().isEmpty()) {
+            jobBuilder.usingJobData("driveFolderId", schedule.getDriveFolderId());
         }
 
         if (dataAdapterJson != null) {
@@ -252,6 +258,12 @@ public class ReportSchedulerService {
             } catch (IllegalArgumentException e) {
                 // ignore
             }
+        }
+
+        // Google Drive folder ID
+        String driveFolderId = jobDataMap.getString("driveFolderId");
+        if (driveFolderId != null && !driveFolderId.isEmpty()) {
+            schedule.setDriveFolderId(driveFolderId);
         }
 
         // Reconstruct mail notification

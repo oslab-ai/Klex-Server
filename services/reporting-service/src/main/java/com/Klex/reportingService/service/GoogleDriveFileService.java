@@ -20,7 +20,7 @@ public class GoogleDriveFileService implements InputSourceService {
 
     private static final String APPLICATION_NAME = "JrlDemo";
     private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
-    private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE_READONLY);
+    private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE_FILE);
     private static final String CREDENTIALS_FILE_PATH = "/credentials.json"; // Expecting in resources
 
     private Drive driveService;
