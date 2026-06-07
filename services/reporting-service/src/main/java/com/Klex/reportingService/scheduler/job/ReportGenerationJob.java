@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import com.Klex.reportingService.scheduler.model.OutputFormat;
 import com.Klex.reportingService.scheduler.service.ReportDeliveryService;
+import com.Klex.reportingService.service.GoogleDriveDeliveryService;
 import com.Klex.reportingService.service.ReportService;
 import com.Klex.reportingService.dto.ReportRequest;
 import com.Klex.reportingService.service.InputSourceType;
@@ -33,6 +34,9 @@ public class ReportGenerationJob implements Job {
 
     @Autowired
     private ReportDeliveryService reportDeliveryService;
+
+    @Autowired
+    private GoogleDriveDeliveryService googleDriveDeliveryService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -141,8 +145,15 @@ public class ReportGenerationJob implements Job {
                 }
             }
 
-            if ("EMAIL".equals(deliveryMethod) && !allReportBytes.isEmpty()) {
-                reportDeliveryService.sendEmailWithMultipleAttachments(allReportBytes, allFileNames, emailTo);
+            if (!allReportBytes.isEmpty()) {
+                if ("EMAIL".equals(deliveryMethod)) {
+                    reportDeliveryService.sendEmailWithMultipleAttachments(allReportBytes, allFileNames, emailTo);
+                } else if ("GOOGLE_DRIVE".equals(deliveryMethod)) {
+                    String driveFolderId = context.getMergedJobDataMap().getString("driveFolderId");
+                    for (int i = 0; i < allReportBytes.size(); i++) {
+                        googleDriveDeliveryService.uploadReport(allReportBytes.get(i), allFileNames.get(i), driveFolderId);
+                    }
+                }
             }
 
         } catch (Exception e) {
