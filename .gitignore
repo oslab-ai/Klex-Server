@@ -92,3 +92,7 @@ terraform/*_override.tf.json
 # AWS credentials (NEVER commit these)
 *credentials*.csv
 *.credentials
+
+# Google Credentials
+credentials.json
+StoredCredential
