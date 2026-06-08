@@ -177,6 +177,10 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
     const [monthlyDay, setMonthlyDay] = useState(1);
     const [selectedDays, setSelectedDays] = useState<number[]>([2, 3, 4, 5, 6]); // Weekdays
 
+    // Delivery method state
+    const [deliveryMethod, setDeliveryMethod] = useState<'EMAIL' | 'GOOGLE_DRIVE'>('EMAIL');
+    const [driveFolderId, setDriveFolderId] = useState('');
+
     // Email delivery state
     const [emailTo, setEmailTo] = useState('');
     const [emailSubject, setEmailSubject] = useState('');
@@ -294,8 +298,12 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
             setError(`Select at least one output format for: ${missingNames.join(', ')}`);
             return;
         }
-        if (!emailTo.trim()) {
+        if (deliveryMethod === 'EMAIL' && !emailTo.trim()) {
             setError('Email recipient is required.');
+            return;
+        }
+        if (deliveryMethod === 'GOOGLE_DRIVE' && !driveFolderId.trim()) {
+            setError('Google Drive folder ID is required.');
             return;
         }
         if (triggerType === 'calendar' && calendarPreset === 'custom' && !cronExpression.trim()) {
@@ -331,15 +339,18 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
                 reportOutputFormats: reportFormats,
                 outputTimeZone: timezone,
                 trigger: buildTrigger(),
-                deliveryMethod: 'EMAIL',
-                mailNotification: {
-                    messageText: emailMessage || `Scheduled report: ${getFinalReportName()}`,
-                    subject: emailSubject || `Report: ${getFinalReportName()}`,
-                    toAddresses: {
-                        address: emailTo.split(/[,;]\s*/).filter(Boolean),
+                deliveryMethod,
+                ...(deliveryMethod === 'GOOGLE_DRIVE' ? { driveFolderId: driveFolderId.trim() } : {}),
+                ...(deliveryMethod === 'EMAIL' ? {
+                    mailNotification: {
+                        messageText: emailMessage || `Scheduled report: ${getFinalReportName()}`,
+                        subject: emailSubject || `Report: ${getFinalReportName()}`,
+                        toAddresses: {
+                            address: emailTo.split(/[,;]\s*/).filter(Boolean),
+                        },
+                        sendToOrganizations,
                     },
-                    sendToOrganizations,
-                },
+                } : {}),
                 ...(Object.keys(paramValues).length > 0 ? { parameters: paramValues } : {}),
             };
 
@@ -414,6 +425,9 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 			setMonthlyDay(draft.monthlyDay ?? 1);
 			setSelectedDays(draft.selectedDays ?? [2, 3, 4, 5, 6]);
 
+			setDeliveryMethod(draft.deliveryMethod ?? 'EMAIL');
+			setDriveFolderId(draft.driveFolderId ?? '');
+
 			setEmailTo(draft.emailTo ?? '');
 			setEmailSubject(draft.emailSubject ?? '');
 			setEmailMessage(draft.emailMessage ?? '');
@@ -454,6 +468,9 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 				monthlyDay,
 				selectedDays,
 
+				deliveryMethod,
+				driveFolderId,
+
 				emailTo,
 				emailSubject,
 				emailMessage,
@@ -486,6 +503,9 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
 		monthlyDay,
 		selectedDays,
 
+		deliveryMethod,
+		driveFolderId,
+
 		emailTo,
 		emailSubject,
 		emailMessage,
@@ -512,6 +532,8 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
         setWeeklyDay(2);
         setMonthlyDay(1);
         setSelectedDays([2, 3, 4, 5, 6]);
+        setDeliveryMethod('EMAIL');
+        setDriveFolderId('');
         setEmailTo('');
         setEmailSubject('');
         setEmailMessage('');
@@ -1064,60 +1086,109 @@ export default function ScheduleModal({ isOpen, onClose, reportName, reportUri, 
                         </div>
                     </div>
 
-                    {/* Email Delivery */}
+                    {/* Delivery Method */}
                     <div className="space-y-3">
-                        <label className="block text-sm font-medium">Email Delivery</label>
-                        
-                        <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700/50">
-                            <div className="mb-2">
-                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Send to Organizations</span>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-2">Select organizations to distribute this report automatically to all their active members.</p>
-                            </div>
-                            <select
-                                multiple
-                                value={sendToOrganizations.map(String)}
-                                onChange={e => {
-                                    const selected = Array.from(e.target.selectedOptions, o => Number(o.value));
-                                    setSendToOrganizations(selected);
-                                }}
-                                className="input text-sm min-h-[96px] bg-white"
+                        <label className="block text-sm font-medium">Delivery Method</label>
+
+                        {/* Toggle */}
+                        <div className="flex rounded-lg border border-gray-200 dark:border-gray-700/50 overflow-hidden">
+                            <button
+                                type="button"
+                                onClick={() => setDeliveryMethod('EMAIL')}
+                                className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
+                                    deliveryMethod === 'EMAIL'
+                                        ? 'bg-violet-500 text-white'
+                                        : 'bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                                }`}
                             >
-                                {organizations.map(org => (
-                                    <option key={org.id} value={org.id}>{org.name}</option>
-                                ))}
-                            </select>
+                                Email
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDeliveryMethod('GOOGLE_DRIVE')}
+                                className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
+                                    deliveryMethod === 'GOOGLE_DRIVE'
+                                        ? 'bg-violet-500 text-white'
+                                        : 'bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                                }`}
+                            >
+                                Google Drive
+                            </button>
                         </div>
-                    <div>
-                        <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">To</label>
-                        <input
-                            type="text"
-                            value={emailTo}
-                            onChange={e => setEmailTo(e.target.value)}
-                            placeholder="email@example.com, another@example.com"
-                            className="input text-sm"
-                        />
+
+                        {deliveryMethod === 'EMAIL' && (
+                            <div className="space-y-3">
+                                <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700/50">
+                                    <div className="mb-2">
+                                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Send to Organizations</span>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-2">Select organizations to distribute this report automatically to all their active members.</p>
+                                    </div>
+                                    <select
+                                        multiple
+                                        value={sendToOrganizations.map(String)}
+                                        onChange={e => {
+                                            const selected = Array.from(e.target.selectedOptions, o => Number(o.value));
+                                            setSendToOrganizations(selected);
+                                        }}
+                                        className="input text-sm min-h-[96px] bg-white"
+                                    >
+                                        {organizations.map(org => (
+                                            <option key={org.id} value={org.id}>{org.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">To</label>
+                                    <input
+                                        type="text"
+                                        value={emailTo}
+                                        onChange={e => setEmailTo(e.target.value)}
+                                        placeholder="email@example.com, another@example.com"
+                                        className="input text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">Subject</label>
+                                    <input
+                                        type="text"
+                                        value={emailSubject}
+                                        onChange={e => setEmailSubject(e.target.value)}
+                                        placeholder={`Report: ${reportName}`}
+                                        className="input text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">Message</label>
+                                    <textarea
+                                        value={emailMessage}
+                                        onChange={e => setEmailMessage(e.target.value)}
+                                        placeholder="Please find the attached report."
+                                        rows={2}
+                                        className="input text-sm resize-none"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {deliveryMethod === 'GOOGLE_DRIVE' && (
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">Drive Folder ID</label>
+                                    <input
+                                        type="text"
+                                        value={driveFolderId}
+                                        onChange={e => setDriveFolderId(e.target.value)}
+                                        placeholder="e.g. 1a2b3c4d5e6f7g8h9i0j"
+                                        className="input text-sm"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        Open the folder in Google Drive and copy the ID from the URL
+                                        (the long alphanumeric string after <code className="text-gray-500">folders/</code>).
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">Subject</label>
-                        <input
-                            type="text"
-                            value={emailSubject}
-                            onChange={e => setEmailSubject(e.target.value)}
-                            placeholder={`Report: ${reportName}`}
-                            className="input text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">Message</label>
-                        <textarea
-                            value={emailMessage}
-                            onChange={e => setEmailMessage(e.target.value)}
-                            placeholder="Please find the attached report."
-                            rows={2}
-                            className="input text-sm resize-none"
-                        />
-                    </div>
-                </div>
             </div>
             </div>
 

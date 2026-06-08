@@ -440,6 +440,7 @@ export interface ScheduleRequest {
     outputTimeZone: string;
     trigger?: Record<string, unknown>;
     deliveryMethod: string;
+    driveFolderId?: string;
     report_id?: number;
     report_ids?: number[];
     dag_id?: string;
