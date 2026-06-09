@@ -1,5 +1,7 @@
 package com.Klex.reportingService.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
@@ -11,10 +13,13 @@ import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.drive.model.File;
+import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.auth.oauth2.GoogleCredentials;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -31,6 +36,7 @@ public class GoogleDriveDeliveryService {
     private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
     private static final String TOKENS_DIRECTORY_PATH =
             System.getProperty("drive.tokens.dir", "tokens");
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     Drive driveService;
 
@@ -48,6 +54,7 @@ public class GoogleDriveDeliveryService {
 
         File uploadedFile = driveService.files().create(fileMetadata, mediaContent)
                 .setFields("id, name, parents")
+                .setSupportsAllDrives(true)
                 .execute();
 
         log.info("Uploaded report {} to Google Drive folder {} with file ID: {}", fileName, folderId, uploadedFile.getId());
@@ -82,15 +89,17 @@ public class GoogleDriveDeliveryService {
     private void initDriveService() throws IOException {
         try {
             final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-            Credential credential = loadCredential(HTTP_TRANSPORT);
-            if (credential == null) {
-                throw new IOException(
-                    "No stored credential found. Run GoogleDriveAuthSetup first to authorize " +
-                    "your Google Drive access, or set -Ddrive.tokens.dir to point to the tokens directory.");
+            byte[] credBytes = readCredentialsBytes();
+            JsonNode credJson = OBJECT_MAPPER.readTree(credBytes);
+
+            if (credJson.has("type") && "service_account".equals(credJson.get("type").asText())) {
+                driveService = buildServiceAccountDrive(HTTP_TRANSPORT, credBytes);
+            } else if (credJson.has("installed") || credJson.has("web")) {
+                driveService = buildOAuthDrive(HTTP_TRANSPORT, credBytes);
+            } else {
+                throw new IOException("Unrecognized credential type in " + CREDENTIALS_FILE_PATH
+                        + ". Expected 'type: service_account' or 'installed'/'web' key.");
             }
-            driveService = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, credential)
-                    .setApplicationName(APPLICATION_NAME)
-                    .build();
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
@@ -98,27 +107,57 @@ public class GoogleDriveDeliveryService {
         }
     }
 
-    private Credential loadCredential(NetHttpTransport httpTransport) throws IOException {
+    private Drive buildServiceAccountDrive(NetHttpTransport httpTransport, byte[] credBytes) throws IOException {
+        GoogleCredentials credentials = GoogleCredentials.fromStream(new ByteArrayInputStream(credBytes))
+                .createScoped(SCOPES);
+        log.info("Initialized Google Drive with service account auth");
+        return new Drive.Builder(httpTransport, JSON_FACTORY, new HttpCredentialsAdapter(credentials))
+                .setApplicationName(APPLICATION_NAME)
+                .build();
+    }
+
+    private Drive buildOAuthDrive(NetHttpTransport httpTransport, byte[] credBytes) throws IOException {
+        GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(
+                JSON_FACTORY, new InputStreamReader(new ByteArrayInputStream(credBytes)));
+
+        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+                httpTransport, JSON_FACTORY, clientSecrets, SCOPES)
+                .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+                .setAccessType("offline")
+                .build();
+
+        Credential credential = flow.loadCredential("user");
+        if (credential == null) {
+            throw new IOException(
+                    "No stored OAuth credential found. Use the Drive auth API to set up authorization:\n" +
+                    "  1) GET /api/drive/auth-url  →  open in browser  →  authorize\n" +
+                    "  2) POST /api/drive/auth-code with the authorization code");
+        }
+        if (credential.getExpiresInSeconds() != null && credential.getExpiresInSeconds() < 60) {
+            credential.refreshToken();
+        }
+        log.info("Initialized Google Drive with OAuth 2.0 auth");
+        return new Drive.Builder(httpTransport, JSON_FACTORY, credential)
+                .setApplicationName(APPLICATION_NAME)
+                .build();
+    }
+
+    private byte[] readCredentialsBytes() throws IOException {
         try (InputStream in = GoogleDriveDeliveryService.class.getResourceAsStream(CREDENTIALS_FILE_PATH)) {
             if (in == null) {
                 throw new IOException("Resource not found: " + CREDENTIALS_FILE_PATH);
             }
-            GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
-
-            GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                    httpTransport, JSON_FACTORY, clientSecrets, SCOPES)
-                    .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
-                    .setAccessType("offline")
-                    .build();
-
-            Credential credential = flow.loadCredential("user");
-            if (credential != null) {
-                if (credential.getExpiresInSeconds() != null && credential.getExpiresInSeconds() < 60) {
-                    credential.refreshToken();
-                }
-                return credential;
-            }
-            return null;
+            return toByteArray(in);
         }
+    }
+
+    private static byte[] toByteArray(InputStream in) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        byte[] buf = new byte[4096];
+        int n;
+        while ((n = in.read(buf)) != -1) {
+            baos.write(buf, 0, n);
+        }
+        return baos.toByteArray();
     }
 }
