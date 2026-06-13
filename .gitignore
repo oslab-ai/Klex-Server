@@ -55,6 +55,12 @@ local_settings.py
 db.sqlite3
 media/
 
+# Apache Airflow (auto-generated, contains machine-specific paths)
+backend/airflow_home/airflow.cfg
+backend/airflow_home/airflow.db*
+backend/airflow_home/logs/
+backend/airflow_home/*.generated
+
 # Testing
 .coverage
 htmlcov/

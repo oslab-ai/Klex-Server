@@ -176,7 +176,12 @@ RECONCILE_PID=""
     cd backend
     export AIRFLOW_HOME="$(pwd)/airflow_home"
     export AIRFLOW__CORE__DAGS_FOLDER="$AIRFLOW_HOME/dags"
-    mkdir -p "$AIRFLOW_HOME/dags" "$AIRFLOW_HOME/logs"
+    export AIRFLOW__CORE__PLUGINS_FOLDER="$AIRFLOW_HOME/plugins"
+    export AIRFLOW__LOGGING__BASE_LOG_FOLDER="$AIRFLOW_HOME/logs"
+    export AIRFLOW__LOGGING__DAG_PROCESSOR_CHILD_PROCESS_LOG_DIRECTORY="$AIRFLOW_HOME/logs/dag_processor"
+    export AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="sqlite:///$AIRFLOW_HOME/airflow.db"
+    export AIRFLOW__CORE__LOAD_EXAMPLES=False
+    mkdir -p "$AIRFLOW_HOME/dags" "$AIRFLOW_HOME/logs" "$AIRFLOW_HOME/plugins"
 
     # ── 1. Initialize / migrate the Airflow metadata DB ─────────
     echo -e "   ${CYAN}Initializing Airflow metadata database...${NC}"
