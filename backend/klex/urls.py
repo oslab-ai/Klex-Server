@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/github/', include('github_integration.urls')),
     path('api/data-adapters/', include('dataadapter.urls')),
     path('api/audit-logs/', include('audit.urls')),
+    path('api/chat/', include('chatbot.urls')),
 ]
 
 # Serve media files in development

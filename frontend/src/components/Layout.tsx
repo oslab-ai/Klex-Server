@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { ChatbotWidget } from './chat/ChatbotWidget';
 
 const SIDEBAR_KEY = 'klex_sidebar_collapsed';
 
@@ -30,6 +31,7 @@ export default function Layout() {
                     <Outlet />
                 </div>
             </main>
+            <ChatbotWidget />
         </div>
     );
 }

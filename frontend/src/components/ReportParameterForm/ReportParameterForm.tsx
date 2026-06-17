@@ -17,6 +17,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import FieldRenderer from './FieldRenderer';
 import { reportsApi } from '../../api';
 import { useTheme } from '../../context/ThemeContext';
+import { useFormFill } from '../../context/FormFillContext';
 import type { ParameterMetadata, ParameterMetadataResponse, ValidationResponse } from '../../types';
 
 // ── Dark theme matching existing app ──
@@ -157,6 +158,25 @@ const ReportParameterForm: React.FC<ReportParameterFormProps> = ({
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [reportId, preloadedMetadata]);
+
+    // ── Listen for Chatbot Form Fill ──
+    const { formFillState } = useFormFill();
+    useEffect(() => {
+        if (formFillState && formFillState.reportId === reportId) {
+            // Merge the new parameters from the chat into the existing form values
+            setFormValues(prev => ({
+                ...prev,
+                ...formFillState.parameters
+            }));
+            // Clear errors for fields that were updated
+            setFieldErrors(prev => {
+                const next = { ...prev };
+                Object.keys(formFillState.parameters).forEach(k => delete next[k]);
+                return next;
+            });
+            setValidationMessage(null);
+        }
+    }, [formFillState, reportId]);
 
     // ── Visible parameters (not hidden) ──
     const visibleParams = useMemo(() => {

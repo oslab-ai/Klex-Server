@@ -468,3 +468,4 @@ export const dispatchApi = {
 
 // Legacy alias
 export const schedulerApi = jobsApi;
+export * from './chat';
